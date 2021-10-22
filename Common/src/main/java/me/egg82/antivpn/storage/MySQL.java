@@ -27,7 +27,8 @@ public class MySQL extends AbstractSQL {
     private volatile long lastVPNID;
     private StorageHandler handler;
 
-    private MySQL() { }
+    private MySQL() {
+    }
 
     private volatile boolean closed = false;
 
@@ -36,16 +37,20 @@ public class MySQL extends AbstractSQL {
         sql.close();
     }
 
-    public boolean isClosed() { return closed || sql.isClosed(); }
+    public boolean isClosed() {
+        return closed || sql.isClosed();
+    }
 
-    public static MySQL.Builder builder(StorageHandler handler) { return new MySQL.Builder(handler); }
+    public static MySQL.Builder builder(StorageHandler handler) {
+        return new MySQL.Builder(handler);
+    }
 
     public static class Builder {
         private final MySQL result = new MySQL();
         private final HikariConfig config = new HikariConfig();
 
         private Builder(StorageHandler handler) {
-            if (handler == null) {
+            if(handler == null) {
                 throw new IllegalArgumentException("handler cannot be null.");
             }
 
@@ -122,334 +127,341 @@ public class MySQL extends AbstractSQL {
             SQLQueryResult r;
             try {
                 r = result.sql.query("SELECT MAX(`id`) FROM `" + result.prefix + "vpn_values`;");
-            } catch (SQLException ex) {
+            } catch(SQLException ex) {
                 throw new StorageException(false, ex);
             }
-            if (r.getData().length != 1) {
+            if(r.getData().length != 1) {
                 throw new StorageException(false, "Could not get VPN IDs.");
             }
             return r.getData()[0][0] != null ? ((Number) r.getData()[0][0]).longValue() : 0;
         }
+    }
 
-        public Set<VPNResult> getVPNQueue() throws StorageException {
-            Set<VPNResult> retVal = new LinkedHashSet<>();
-            SQLQueryResult result;
-            try {
-                result = sql.call("call `" + prefix + "get_vpn_queue_id`(?);", lastVPNID);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-            for (Object[] row : result.getData()) {
-                VPNResult r = getVPNResult(row);
-                if (r != null) {
-                    lastVPNID = r.getID();
-                    retVal.add(r);
-                }
-            }
-            return retVal;
+    public Set<VPNResult> getVPNQueue() throws StorageException {
+        Set<VPNResult> retVal = new LinkedHashSet<>();
+        SQLQueryResult result;
+        try {
+            result = sql.call("call `" + prefix + "get_vpn_queue_id`(?);", lastVPNID);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
-
-        public VPNResult getVPNByIP(String ip, long cacheTimeMillis) throws StorageException {
-            if (ip == null) {
-                throw new IllegalArgumentException("ip cannot be null.");
-            }
-            if (!ValidationUtil.isValidIp(ip)) {
-                throw new IllegalArgumentException("ip is invalid.");
-            }
-
-            long longIPID = longIPIDCache.get(ip);
-            SQLQueryResult result;
-            try {
-                result = sql.call("call `" + prefix + "get_vpn_ip`(?, ?);", longIPID, cacheTimeMillis);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-            if (result.getData().length == 1) {
-                return getVPNResult(result.getData()[0]);
-            }
-            return null;
-        }
-
-        public PostVPNResult postVPN(String ip, Optional<Boolean> cascade, Optional<Double> consensus) throws StorageException {
-            if (ip == null) {
-                throw new IllegalArgumentException("ip cannot be null.");
-            }
-            if (!ValidationUtil.isValidIp(ip)) {
-                throw new IllegalArgumentException("ip is invalid.");
-            }
-            if (cascade == null) {
-                throw new IllegalArgumentException("cascade cannot be null.");
-            }
-            if (consensus == null) {
-                throw new IllegalArgumentException("consensus cannot be null.");
-            }
-
-            long longIPID = longIPIDCache.get(ip);
-            try {
-                sql.execute("INSERT INTO `" + prefix + "vpn_values` (`ip_id`, `cascade`, `consensus`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `cascade`=?, `consensus`=?, `created`=CURRENT_TIMESTAMP();", longIPID, cascade.orElse(null), consensus.orElse(null), cascade.orElse(null), consensus.orElse(null));
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-
-            SQLQueryResult query;
-            try {
-                query = sql.query("SELECT `id`, `created` FROM `" + prefix + "vpn_values` WHERE `ip_id`=?;", longIPID);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-            if (query.getData().length != 1) {
-                throw new StorageException(false, "Could not get data from inserted value.");
-            }
-
-            return new PostVPNResult(
-                    ((Number) query.getData()[0][0]).longValue(),
-                    longIPID,
-                    ip,
-                    cascade,
-                    consensus,
-                    ((Timestamp) query.getData()[0][1]).getTime()
-            );
-        }
-
-        public void setIPRaw(long longIPID, String ip) throws StorageException {
-            try {
-                sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `ip`=?, `uuid`=?;", longIPID, ip, longIPID, ip);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-            longIPIDCache.put(ip, longIPID);
-        }
-
-        public void setPlayerRaw(long longPlayerID, UUID playerID) throws StorageException {
-            try {
-                sql.execute("INSERT INTO `" + prefix + "players` (`id`, `uuid`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `id`=?, `uuid`=?;", longPlayerID, playerID.toString(), longPlayerID, playerID.toString());
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-            longPlayerIDCache.put(playerID, longPlayerID);
-        }
-
-        public void postVPNRaw(long id, long longIPID, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws StorageException {
-            try {
-                sql.execute("INSERT IGNORE INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", id, longIPID, cascade.orElse(null), consensus.orElse(null), new Timestamp(created));
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        for(Object[] row : result.getData()) {
+            VPNResult r = getVPNResult(row);
+            if(r != null) {
+                lastVPNID = r.getID();
+                retVal.add(r);
             }
         }
+        return retVal;
+    }
 
-        protected void setKey(String key, String value) throws SQLException { sql.execute("INSERT INTO `" + prefix + "data` (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value`=?;", key, value, value); }
-
-        protected double getDouble(String key) throws SQLException {
-            SQLQueryResult result = sql.query("SELECT `value` FROM `" + prefix + "data` WHERE `key`=?;", key);
-            if (result.getData().length == 1) {
-                return Double.parseDouble((String) result.getData()[0][0]);
-            }
-            return -1.0d;
+    public VPNResult getVPNByIP(String ip, long cacheTimeMillis) throws StorageException {
+        if(ip == null) {
+            throw new IllegalArgumentException("ip cannot be null.");
+        }
+        if(!ValidationUtil.isValidIp(ip)) {
+            throw new IllegalArgumentException("ip is invalid.");
         }
 
-        public long getLongIPID(String ip) { return longIPIDCache.get(ip); }
+        long longIPID = longIPIDCache.get(ip);
+        SQLQueryResult result;
+        try {
+            result = sql.call("call `" + prefix + "get_vpn_ip`(?, ?);", longIPID, cacheTimeMillis);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+        if(result.getData().length == 1) {
+            return getVPNResult(result.getData()[0]);
+        }
+        return null;
+    }
 
-        public long getLongPlayerID(UUID playerID) { return longPlayerIDCache.get(playerID); }
-
-        public Set<IPResult> dumpIPs(long begin, int size) throws StorageException {
-            Set<IPResult> retVal = new LinkedHashSet<>();
-
-            SQLQueryResult result;
-            try {
-                result = sql.query("SELECT `id`, `ip` FROM `" + prefix + "ips` LIMIT ?, ?;", begin - 1, size);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-
-            for (Object[] row : result.getData()) {
-                String ip = (String) row[1];
-                if (!ValidationUtil.isValidIp(ip)) {
-                    logger.warn("IP ID " + ((Number) row[0]).longValue() + " has an invalid IP \"" + ip + "\".");
-                    continue;
-                }
-
-                retVal.add(new IPResult(
-                        ((Number) row[0]).byteValue(),
-                        (String) row[1]
-                ));
-            }
-
-            return retVal;
+    public PostVPNResult postVPN(String ip, Optional<Boolean> cascade, Optional<Double> consensus) throws StorageException {
+        if(ip == null) {
+            throw new IllegalArgumentException("ip cannot be null.");
+        }
+        if(!ValidationUtil.isValidIp(ip)) {
+            throw new IllegalArgumentException("ip is invalid.");
+        }
+        if(cascade == null) {
+            throw new IllegalArgumentException("cascade cannot be null.");
+        }
+        if(consensus == null) {
+            throw new IllegalArgumentException("consensus cannot be null.");
         }
 
-        public void loadIPs(Set<IPResult> ips, boolean truncate) throws StorageException {
-            // TODO: Batch execute
-            try {
-                if (truncate) {
-                    sql.execute("SET FOREIGN_KEY_CHECKS = 0;");
-                    sql.execute("TRUNCATE `" + prefix + "ips`;");
-                    longIPIDCache.invalidateAll();
-                }
-                for (IPResult ip : ips) {
-                    sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?);", ip.getLongIPID(), ip.getIP());
-                    longIPIDCache.put(ip.getIP(), ip.getLongIPID());
-                }
-                if (truncate) {
-                    sql.execute("SET FOREIGN_KEY_CHECKS = 1;");
-                }
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
+        long longIPID = longIPIDCache.get(ip);
+        try {
+            sql.execute("INSERT INTO `" + prefix + "vpn_values` (`ip_id`, `cascade`, `consensus`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `cascade`=?, `consensus`=?, `created`=CURRENT_TIMESTAMP();", longIPID, cascade.orElse(null), consensus.orElse(null), cascade.orElse(null), consensus.orElse(null));
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
 
-        public Set<PlayerResult> dumpPlayers(long begin, int size) throws StorageException {
-            Set<PlayerResult> retVal = new LinkedHashSet<>();
-
-            SQLQueryResult result;
-            try {
-                result = sql.query("SELECT `id`, `uuid` FROM `" + prefix + "players` LIMIT ?, ?;", begin - 1, size);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-
-            for (Object[] row : result.getData()) {
-                String pid = (String) row[1];
-                if (!ValidationUtil.isValidUuid(pid)) {
-                    logger.warn("Player ID " + ((Number) row[0]).longValue() + " has an invalid UUID \"" + pid + "\".");
-                    continue;
-                }
-
-                retVal.add(new PlayerResult(
-                        ((Number) row[0]).longValue(),
-                        UUID.fromString(pid)
-                ));
-            }
-
-            return retVal;
+        SQLQueryResult query;
+        try {
+            query = sql.query("SELECT `id`, `created` FROM `" + prefix + "vpn_values` WHERE `ip_id`=?;", longIPID);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+        if(query.getData().length != 1) {
+            throw new StorageException(false, "Could not get data from inserted value.");
         }
 
-        public void loadPlayers(Set<PlayerResult> players, boolean truncate) throws StorageException {
-            // TODO: Batch execute
-            try {
-                if (truncate) {
-                    sql.execute("SET FOREIGN_KEY_CHECKS = 0;");
-                    sql.execute("TRUNCATE `" + prefix + "players`;");
-                    longPlayerIDCache.invalidateAll();
-                }
-                for (PlayerResult player : players) {
-                    sql.execute("INSERT INTO `" + prefix + "players` (`id`, `uuid`) VALUES (?, ?);", player.getLongPlayerID(), player.getPlayerID().toString());
-                    longPlayerIDCache.put(player.getPlayerID(), player.getLongPlayerID());
-                }
-                if (truncate) {
-                    sql.execute("SET FOREIGN_KEY_CHECKS = 1;");
-                }
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
+        return new PostVPNResult(
+                ((Number) query.getData()[0][0]).longValue(),
+                longIPID,
+                ip,
+                cascade,
+                consensus,
+                ((Timestamp) query.getData()[0][1]).getTime()
+        );
+    }
+
+    public void setIPRaw(long longIPID, String ip) throws StorageException {
+        try {
+            sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `ip`=?, `uuid`=?;", longIPID, ip, longIPID, ip);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+        longIPIDCache.put(ip, longIPID);
+    }
+
+    public void setPlayerRaw(long longPlayerID, UUID playerID) throws StorageException {
+        try {
+            sql.execute("INSERT INTO `" + prefix + "players` (`id`, `uuid`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `id`=?, `uuid`=?;", longPlayerID, playerID.toString(), longPlayerID, playerID.toString());
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+        longPlayerIDCache.put(playerID, longPlayerID);
+    }
+
+    public void postVPNRaw(long id, long longIPID, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws StorageException {
+        try {
+            sql.execute("INSERT IGNORE INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", id, longIPID, cascade.orElse(null), consensus.orElse(null), new Timestamp(created));
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+    }
+
+    protected void setKey(String key, String value) throws SQLException {
+        sql.execute("INSERT INTO `" + prefix + "data` (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value`=?;", key, value, value);
+    }
+
+    protected double getDouble(String key) throws SQLException {
+        SQLQueryResult result = sql.query("SELECT `value` FROM `" + prefix + "data` WHERE `key`=?;", key);
+        if(result.getData().length == 1) {
+            return Double.parseDouble((String) result.getData()[0][0]);
+        }
+        return -1.0d;
+    }
+
+    public long getLongIPID(String ip) {
+        return longIPIDCache.get(ip);
+    }
+
+    public long getLongPlayerID(UUID playerID) {
+        return longPlayerIDCache.get(playerID);
+    }
+
+    public Set<IPResult> dumpIPs(long begin, int size) throws StorageException {
+        Set<IPResult> retVal = new LinkedHashSet<>();
+
+        SQLQueryResult result;
+        try {
+            result = sql.query("SELECT `id`, `ip` FROM `" + prefix + "ips` LIMIT ?, ?;", begin - 1, size);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
 
-        public Set<RawVPNResult> dumpVPNValues(long begin, int size) throws StorageException {
-            Set<RawVPNResult> retVal = new LinkedHashSet<>();
-
-            SQLQueryResult result;
-            try {
-                result = sql.query("SELECT `id`, `ip_id`, `cascade`, `consensus`, `created` FROM `" + prefix + "vpn_values` LIMIT ?, ?;", begin - 1, size);
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-
-            for (Object[] row : result.getData()) {
-                retVal.add(new RawVPNResult(
-                        ((Number) row[0]).longValue(),
-                        ((Number) row[1]).longValue(),
-                        row[2] == null ? Optional.empty() : Optional.of((Boolean) row[2]),
-                        row[3] == null ? Optional.empty() : Optional.of(((Number) row[3]).doubleValue()),
-                        ((Timestamp) row[4]).getTime()
-                ));
-            }
-
-            return retVal;
-        }
-
-        public void loadVPNValues(Set<RawVPNResult> values, boolean truncate) throws StorageException {
-            // TODO: Batch execute
-            try {
-                if (truncate) {
-                    sql.execute("SET FOREIGN_KEY_CHECKS = 0;");
-                    sql.execute("TRUNCATE `" + prefix + "vpn_values`;");
-                }
-                for (RawVPNResult value : values) {
-                    sql.execute("INSERT INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", value.getID(), value.getIPID(), value.getCascade().orElse(null), value.getConsensus().orElse(null), new Timestamp(value.getCreated()));
-                }
-                if (truncate) {
-                    sql.execute("SET FOREIGN_KEY_CHECKS = 1;");
-                }
-            } catch (SQLException ex) {
-                throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-            }
-        }
-
-        private VPNResult getVPNResult(Object[] row) {
+        for(Object[] row : result.getData()) {
             String ip = (String) row[1];
-            if (!ValidationUtil.isValidIp(ip)) {
-                logger.warn("VPN ID " + row[0] + " has an invalid IP \"" + row[1] + "\".");
-                return null;
+            if(!ValidationUtil.isValidIp(ip)) {
+                logger.warn("IP ID " + ((Number) row[0]).longValue() + " has an invalid IP \"" + ip + "\".");
+                continue;
             }
 
-            return new VPNResult(
+            retVal.add(new IPResult(
+                    ((Number) row[0]).byteValue(),
+                    (String) row[1]
+            ));
+        }
+
+        return retVal;
+    }
+
+    public void loadIPs(Set<IPResult> ips, boolean truncate) throws StorageException {
+        // TODO: Batch execute
+        try {
+            if(truncate) {
+                sql.execute("SET FOREIGN_KEY_CHECKS = 0;");
+                sql.execute("TRUNCATE `" + prefix + "ips`;");
+                longIPIDCache.invalidateAll();
+            }
+            for(IPResult ip : ips) {
+                sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?);", ip.getLongIPID(), ip.getIP());
+                longIPIDCache.put(ip.getIP(), ip.getLongIPID());
+            }
+            if(truncate) {
+                sql.execute("SET FOREIGN_KEY_CHECKS = 1;");
+            }
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+    }
+
+    public Set<PlayerResult> dumpPlayers(long begin, int size) throws StorageException {
+        Set<PlayerResult> retVal = new LinkedHashSet<>();
+
+        SQLQueryResult result;
+        try {
+            result = sql.query("SELECT `id`, `uuid` FROM `" + prefix + "players` LIMIT ?, ?;", begin - 1, size);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+
+        for(Object[] row : result.getData()) {
+            String pid = (String) row[1];
+            if(!ValidationUtil.isValidUuid(pid)) {
+                logger.warn("Player ID " + ((Number) row[0]).longValue() + " has an invalid UUID \"" + pid + "\".");
+                continue;
+            }
+
+            retVal.add(new PlayerResult(
                     ((Number) row[0]).longValue(),
-                    ip,
+                    UUID.fromString(pid)
+            ));
+        }
+
+        return retVal;
+    }
+
+    public void loadPlayers(Set<PlayerResult> players, boolean truncate) throws StorageException {
+        // TODO: Batch execute
+        try {
+            if(truncate) {
+                sql.execute("SET FOREIGN_KEY_CHECKS = 0;");
+                sql.execute("TRUNCATE `" + prefix + "players`;");
+                longPlayerIDCache.invalidateAll();
+            }
+            for(PlayerResult player : players) {
+                sql.execute("INSERT INTO `" + prefix + "players` (`id`, `uuid`) VALUES (?, ?);", player.getLongPlayerID(), player.getPlayerID().toString());
+                longPlayerIDCache.put(player.getPlayerID(), player.getLongPlayerID());
+            }
+            if(truncate) {
+                sql.execute("SET FOREIGN_KEY_CHECKS = 1;");
+            }
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+    }
+
+    public Set<RawVPNResult> dumpVPNValues(long begin, int size) throws StorageException {
+        Set<RawVPNResult> retVal = new LinkedHashSet<>();
+
+        SQLQueryResult result;
+        try {
+            result = sql.query("SELECT `id`, `ip_id`, `cascade`, `consensus`, `created` FROM `" + prefix + "vpn_values` LIMIT ?, ?;", begin - 1, size);
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
+        }
+
+        for(Object[] row : result.getData()) {
+            retVal.add(new RawVPNResult(
+                    ((Number) row[0]).longValue(),
+                    ((Number) row[1]).longValue(),
                     row[2] == null ? Optional.empty() : Optional.of((Boolean) row[2]),
                     row[3] == null ? Optional.empty() : Optional.of(((Number) row[3]).doubleValue()),
                     ((Timestamp) row[4]).getTime()
-            );
+            ));
         }
 
-        private long getLongIPIDExpensive(String ip) throws SQLException, StorageException {
-            // A majority of the time there'll be an ID
-            SQLQueryResult result = sql.query("SELECT `id` FROM `" + prefix + "ips` WHERE `ip`=?;", ip);
-            if (result.getData().length == 1) {
-                return ((Number) result.getData()[0][0]).longValue();
-            }
+        return retVal;
+    }
 
-            // No ID, generate one
-            SQLExecuteResult r = sql.execute("INSERT INTO `" + prefix + "ips` (`ip`) VALUES (?);", ip);
-            if (r.getAutoGeneratedKeys().length != 1) {
-                throw new StorageException(false, "Could not get generated keys from inserted IP.");
+    public void loadVPNValues(Set<RawVPNResult> values, boolean truncate) throws StorageException {
+        // TODO: Batch execute
+        try {
+            if(truncate) {
+                sql.execute("SET FOREIGN_KEY_CHECKS = 0;");
+                sql.execute("TRUNCATE `" + prefix + "vpn_values`;");
             }
-            long id = ((Number) r.getAutoGeneratedKeys()[0]).longValue();
-            handler.ipIDCreationCallback(ip, id, this);
-            return id;
-        }
-
-        private long getLongPlayerIDExpensive(UUID uuid) throws SQLException, StorageException {
-            // A majority of the time there'll be an ID
-            SQLQueryResult result = sql.query("SELECT `id` FROM `" + prefix + "players` WHERE `uuid`=?;", uuid.toString());
-            if (result.getData().length == 1) {
-                return ((Number) result.getData()[0][0]).longValue();
+            for(RawVPNResult value : values) {
+                sql.execute("INSERT INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", value.getID(), value.getIPID(), value.getCascade().orElse(null), value.getConsensus().orElse(null), new Timestamp(value.getCreated()));
             }
-
-            // No ID, generate one
-            SQLExecuteResult r = sql.execute("INSERT INTO `" + prefix + "players` (`uuid`) VALUES (?);", uuid.toString());
-            if (r.getAutoGeneratedKeys().length != 1) {
-                throw new StorageException(false, "Could not get generated keys from inserted player.");
+            if(truncate) {
+                sql.execute("SET FOREIGN_KEY_CHECKS = 1;");
             }
-            long id = ((Number) r.getAutoGeneratedKeys()[0]).longValue();
-            handler.playerIDCreationCallback(uuid, id, this);
-            return id;
-        }
-
-        protected boolean isAutomaticallyRecoverable(SQLException ex) {
-            if (
-                    ex.getErrorCode() == MysqlErrorNumbers.ER_LOCK_WAIT_TIMEOUT
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_QUERY_TIMEOUT
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_CON_COUNT_ERROR
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_TOO_MANY_DELAYED_THREADS
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_BINLOG_PURGE_EMFILE
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_TOO_MANY_CONCURRENT_TRXS
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_OUTOFMEMORY
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_OUT_OF_SORTMEMORY
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_CANT_CREATE_THREAD
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_OUT_OF_RESOURCES
-                            || ex.getErrorCode() == MysqlErrorNumbers.ER_ENGINE_OUT_OF_MEMORY
-            ) {
-                return true;
-            }
-            return false;
+        } catch(SQLException ex) {
+            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
+
+    private VPNResult getVPNResult(Object[] row) {
+        String ip = (String) row[1];
+        if(!ValidationUtil.isValidIp(ip)) {
+            logger.warn("VPN ID " + row[0] + " has an invalid IP \"" + row[1] + "\".");
+            return null;
+        }
+
+        return new VPNResult(
+                ((Number) row[0]).longValue(),
+                ip,
+                row[2] == null ? Optional.empty() : Optional.of((Boolean) row[2]),
+                row[3] == null ? Optional.empty() : Optional.of(((Number) row[3]).doubleValue()),
+                ((Timestamp) row[4]).getTime()
+        );
+    }
+
+    private long getLongIPIDExpensive(String ip) throws SQLException, StorageException {
+        // A majority of the time there'll be an ID
+        SQLQueryResult result = sql.query("SELECT `id` FROM `" + prefix + "ips` WHERE `ip`=?;", ip);
+        if(result.getData().length == 1) {
+            return ((Number) result.getData()[0][0]).longValue();
+        }
+
+        // No ID, generate one
+        SQLExecuteResult r = sql.execute("INSERT INTO `" + prefix + "ips` (`ip`) VALUES (?);", ip);
+        if(r.getAutoGeneratedKeys().length != 1) {
+            throw new StorageException(false, "Could not get generated keys from inserted IP.");
+        }
+        long id = ((Number) r.getAutoGeneratedKeys()[0]).longValue();
+        handler.ipIDCreationCallback(ip, id, this);
+        return id;
+    }
+
+    private long getLongPlayerIDExpensive(UUID uuid) throws SQLException, StorageException {
+        // A majority of the time there'll be an ID
+        SQLQueryResult result = sql.query("SELECT `id` FROM `" + prefix + "players` WHERE `uuid`=?;", uuid.toString());
+        if(result.getData().length == 1) {
+            return ((Number) result.getData()[0][0]).longValue();
+        }
+
+        // No ID, generate one
+        SQLExecuteResult r = sql.execute("INSERT INTO `" + prefix + "players` (`uuid`) VALUES (?);", uuid.toString());
+        if(r.getAutoGeneratedKeys().length != 1) {
+            throw new StorageException(false, "Could not get generated keys from inserted player.");
+        }
+        long id = ((Number) r.getAutoGeneratedKeys()[0]).longValue();
+        handler.playerIDCreationCallback(uuid, id, this);
+        return id;
+    }
+
+    protected boolean isAutomaticallyRecoverable(SQLException ex) {
+        if(
+                ex.getErrorCode() == MysqlErrorNumbers.ER_LOCK_WAIT_TIMEOUT
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_QUERY_TIMEOUT
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_CON_COUNT_ERROR
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_TOO_MANY_DELAYED_THREADS
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_BINLOG_PURGE_EMFILE
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_TOO_MANY_CONCURRENT_TRXS
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_OUTOFMEMORY
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_OUT_OF_SORTMEMORY
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_CANT_CREATE_THREAD
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_OUT_OF_RESOURCES
+                        || ex.getErrorCode() == MysqlErrorNumbers.ER_ENGINE_OUT_OF_MEMORY
+        ) {
+            return true;
+        }
+        return false;
+    }
+}

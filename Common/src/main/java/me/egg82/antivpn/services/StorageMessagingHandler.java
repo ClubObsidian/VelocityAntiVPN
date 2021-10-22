@@ -9,7 +9,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import me.egg82.antivpn.core.MCLeaksResult;
 import me.egg82.antivpn.core.VPNResult;
 import me.egg82.antivpn.extended.CachedConfigValues;
 import me.egg82.antivpn.messaging.Messaging;

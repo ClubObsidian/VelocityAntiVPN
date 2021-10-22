@@ -181,22 +181,6 @@ public class CachedConfigValues {
             return this;
         }
 
-        public CachedConfigValues.Builder mcleaksKickMessage(String value) {
-            if (value == null) {
-                throw new IllegalArgumentException("value cannot be null.");
-            }
-            values.mcleaksKickMessage = value;
-            return this;
-        }
-
-        public CachedConfigValues.Builder mcleaksActionCommands(Collection<String> value) {
-            if (value == null) {
-                throw new IllegalArgumentException("value cannot be null.");
-            }
-            values.mcleaksActionCommands = ImmutableList.copyOf(value);
-            return this;
-        }
-
         public CachedConfigValues.Builder vpnAlgorithmMethod(VPNAlgorithmMethod value) {
             if (value == null) {
                 throw new IllegalArgumentException("value cannot be null.");

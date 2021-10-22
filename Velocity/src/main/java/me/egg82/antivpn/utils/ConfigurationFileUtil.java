@@ -20,13 +20,13 @@ import me.egg82.antivpn.storage.MySQL;
 import me.egg82.antivpn.storage.SQLite;
 import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.storage.StorageException;
-import net.kyori.text.TextComponent;
-import net.kyori.text.format.TextColor;
+import ninja.egg82.service.ServiceLocator;
 import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.ConfigurationOptions;
+import org.spongepowered.configurate.serialize.SerializationException;
 import org.spongepowered.configurate.yaml.NodeStyle;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
@@ -68,7 +68,7 @@ public class ConfigurationFileUtil {
         List<Storage> storage;
         try {
             storage = getStorage(proxy, description, config.node("storage", "engines"), new PoolSettings(config.node("storage", "settings")), debug, config.node("storage", "order").getList(TypeToken.of(String.class)), storageHandler);
-        } catch (ObjectMappingException ex) {
+        } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             storage = new ArrayList<>();
         }
@@ -86,7 +86,7 @@ public class ConfigurationFileUtil {
         List<Messaging> messaging;
         try {
             messaging = getMessaging(proxy, config.node("messaging", "engines"), new PoolSettings(config.node("messaging", "settings")), debug, serverID, config.node("messaging", "order").getList(TypeToken.of(String.class)), messagingHandler);
-        } catch (ObjectMappingException ex) {
+        } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             messaging = new ArrayList<>();
         }
@@ -101,7 +101,7 @@ public class ConfigurationFileUtil {
         Set<String> stringSources;
         try {
             stringSources = new LinkedHashSet<>(config.node("sources", "order").getList(TypeToken.of(String.class)));
-        } catch (ObjectMappingException ex) {
+        } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             stringSources = new LinkedHashSet<>();
         }
@@ -150,20 +150,10 @@ public class ConfigurationFileUtil {
             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Source cache time: ").color(TextColor.YELLOW)).append(TextComponent.of(sourceCacheTime.get().getMillis() + "ms").color(TextColor.WHITE)).build());
         }
 
-        Optional<TimeUtil.Time> mcleaksCacheTime = TimeUtil.getTime(config.node("mcleaks", "cache-time").getString("1day"));
-        if (!mcleaksCacheTime.isPresent()) {
-            logger.warn("mcleaks.cache-time is not a valid time pattern. Using default value.");
-            mcleaksCacheTime = Optional.of(new TimeUtil.Time(1L, TimeUnit.DAYS));
-        }
-
-        if (debug) {
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("MCLEaks cache time: ").color(TextColor.YELLOW)).append(TextComponent.of(mcleaksCacheTime.get().getMillis() + "ms").color(TextColor.WHITE)).build());
-        }
-
         Set<String> ignoredIps;
         try {
             ignoredIps = new HashSet<>(config.node("action", "ignore").getList(TypeToken.of(String.class)));
-        } catch (ObjectMappingException ex) {
+        } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             ignoredIps = new HashSet<>();
         }
@@ -195,8 +185,8 @@ public class ConfigurationFileUtil {
 
         List<String> vpnActionCommands;
         try {
-            vpnActionCommands = new ArrayList<>(config.node("action", "vpn", "commands").getList(TypeToken.of(String.class)));
-        } catch (ObjectMappingException ex) {
+            vpnActionCommands = new ArrayList<>(config.node("action", "vpn", "commands").getList(String.class));
+        } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             vpnActionCommands = new ArrayList<>();
         }
@@ -207,22 +197,6 @@ public class ConfigurationFileUtil {
                 proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Including command action for VPN usage: ").color(TextColor.YELLOW)).append(TextComponent.of(action).color(TextColor.WHITE)).build());
             }
         }
-
-        List<String> mcleaksActionCommands;
-        try {
-            mcleaksActionCommands = new ArrayList<>(config.node("action", "mcleaks", "commands").getList(TypeToken.of(String.class)));
-        } catch (ObjectMappingException ex) {
-            logger.error(ex.getMessage(), ex);
-            mcleaksActionCommands = new ArrayList<>();
-        }
-        mcleaksActionCommands.removeIf(action -> action == null || action.isEmpty());
-
-        if (debug) {
-            for (String action : mcleaksActionCommands) {
-                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Including command action for MCLeaks usage: ").color(TextColor.YELLOW)).append(TextComponent.of(action).color(TextColor.WHITE)).build());
-            }
-        }
-
         VPNAlgorithmMethod vpnAlgorithmMethod = VPNAlgorithmMethod.getByName(config.node("action", "vpn", "algorithm", "method").getString("cascade"));
         if (vpnAlgorithmMethod == null) {
             logger.warn("action.vpn.algorithm.method is not a valid type. Using default value.");
@@ -238,15 +212,12 @@ public class ConfigurationFileUtil {
                 .messaging(messaging)
                 .sources(sources)
                 .sourceCacheTime(sourceCacheTime.get())
-                .mcleaksCacheTime(mcleaksCacheTime.get())
                 .ignoredIps(ignoredIps)
                 .cacheTime(cacheTime.get())
                 .threads(config.node("connection", "threads").getInt(4))
                 .timeout(config.node("connection", "timeout").getLong(5000L))
                 .vpnKickMessage(config.node("action", "vpn", "kick-message").getString("&cPlease disconnect from your proxy or VPN before re-joining!"))
                 .vpnActionCommands(vpnActionCommands)
-                .mcleaksKickMessage(config.node("action", "mcleaks", "kick-message").getString("&cPlease discontinue your use of an MCLeaks account!"))
-                .mcleaksActionCommands(mcleaksActionCommands)
                 .vpnAlgorithmMethod(vpnAlgorithmMethod)
                 .vpnAlgorithmConsensus(vpnAlgorithmConsensus)
                 .build();

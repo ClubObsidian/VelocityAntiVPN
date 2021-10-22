@@ -15,7 +15,6 @@ import java.util.*;
 import me.egg82.antivpn.apis.SourceAPI;
 import me.egg82.antivpn.commands.AntiVPNCommand;
 import me.egg82.antivpn.enums.Message;
-import me.egg82.antivpn.events.EventHolder;
 import me.egg82.antivpn.events.PlayerEvents;
 import me.egg82.antivpn.extended.CachedConfigValues;
 import me.egg82.antivpn.hooks.PluginHook;
@@ -23,6 +22,7 @@ import me.egg82.antivpn.services.PluginMessageFormatter;
 import me.egg82.antivpn.services.StorageMessagingHandler;
 import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.utils.*;
+import ninja.egg82.service.ServiceLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -34,8 +34,6 @@ public class AntiVPN {
 
     private VelocityCommandManager commandManager;
 
-    private List<EventHolder> eventHolders = new ArrayList<>();
-    private List<VelocityEventSubscriber<?>> events = new ArrayList<>();
     private List<ScheduledTask> tasks = new ArrayList<>();
 
     private Object plugin;
@@ -75,16 +73,10 @@ public class AntiVPN {
         loadTasks();
         loadHooks();
 
-        int numEvents = events.size();
-        for (EventHolder eventHolder : eventHolders) {
-            numEvents += eventHolder.numEvents();
-        }
-
         this.consoleCommandIssuer.sendInfo(Message.GENERAL__ENABLED);
         this.consoleCommandIssuer.sendInfo(Message.GENERAL__LOAD,
                 "{version}", this.description.getVersion().get(),
                 "{commands}", String.valueOf(this.commandManager.getRegisteredRootCommands().size()),
-                "{events}", String.valueOf(numEvents),
                 "{tasks}", String.valueOf(this.tasks.size())
         );
     }
@@ -96,15 +88,6 @@ public class AntiVPN {
             task.cancel();
         }
         this.tasks.clear();
-
-        for (EventHolder eventHolder : eventHolders) {
-            eventHolder.cancel();
-        }
-        this.eventHolders.clear();
-        for (VelocityEventSubscriber<?> event : events) {
-            event.cancel();
-        }
-        events.clear();
 
         this.unloadHooks();
         this.unloadServices();
@@ -226,7 +209,7 @@ public class AntiVPN {
     }
 
     private void loadEvents() {
-        eventHolders.add(new PlayerEvents(plugin, proxy));
+        this.proxy.getEventManager().register(this.plugin, new PlayerEvents(this.proxy));
     }
 
     private void loadTasks() { }

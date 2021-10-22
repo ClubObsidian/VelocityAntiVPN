@@ -1,15 +1,15 @@
 package me.egg82.antivpn.utils;
 
 import com.velocitypowered.api.plugin.PluginDescription;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.loader.ConfigurationLoader;
+import org.spongepowered.configurate.yaml.NodeStyle;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.util.Locale;
 import java.util.Optional;
-import ninja.leaping.configurate.ConfigurationNode;
-import ninja.leaping.configurate.loader.ConfigurationLoader;
-import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
-import org.yaml.snakeyaml.DumperOptions;
-
 public class LanguageFileUtil {
     private LanguageFileUtil() {}
 
@@ -41,15 +41,25 @@ public class LanguageFileUtil {
         if (fileOnDisk.exists()) {
             try (InputStream inStream = plugin.getClass().getClassLoader().getResourceAsStream(resourcePath)) {
                 if (inStream != null) {
-                    ConfigurationLoader<ConfigurationNode> fileLoader = YAMLConfigurationLoader.builder().setFlowStyle(DumperOptions.FlowStyle.BLOCK).setIndent(2).setFile(fileOnDisk).build();
+                    YamlConfigurationLoader fileLoader = YamlConfigurationLoader
+                            .builder()
+                            .nodeStyle(NodeStyle.BLOCK)
+                            .indent(2)
+                            .file(fileOnDisk)
+                            .build();
                     ConfigurationNode fileRoot = fileLoader.load();
-                    double fileVersion = fileRoot.getNode("acf-minecraft", "version").getDouble(1.0d);
+                    double fileVersion = fileRoot.node("acf-minecraft", "version").getDouble(1.0d);
 
                     try (InputStreamReader reader = new InputStreamReader(inStream);
                          BufferedReader in = new BufferedReader(reader)) {
-                        ConfigurationLoader<ConfigurationNode> streamLoader = YAMLConfigurationLoader.builder().setFlowStyle(DumperOptions.FlowStyle.BLOCK).setIndent(2).setSource(() -> in).build();
+                        YamlConfigurationLoader streamLoader = YamlConfigurationLoader
+                                .builder()
+                                .nodeStyle(NodeStyle.BLOCK)
+                                .indent(2)
+                                .source(() -> in)
+                                .build();
                         ConfigurationNode streamRoot = streamLoader.load();
-                        double streamVersion = streamRoot.getNode("acf-minecraft", "version").getDouble(1.0d);
+                        double streamVersion = streamRoot.node("acf-minecraft", "version").getDouble(1.0d);
 
                         if (streamVersion > fileVersion) {
                             // Version update, backup & delete file on disk

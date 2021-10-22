@@ -80,18 +80,6 @@ public class CheckCommand implements Runnable {
                 issuer.sendError(Message.ERROR__INTERNAL);
                 return;
             }
-
-            try {
-                issuer.sendInfo(api.isMCLeaks(playerID) ? Message.CHECK__MCLEAKS_DETECTED : Message.CHECK__NO_MCLEAKS_DETECTED);
-                return;
-            } catch (APIException ex) {
-                if (cachedConfig.get().getDebug()) {
-                    logger.error("[Hard: " + ex.isHard() + "] " + ex.getMessage(), ex);
-                } else {
-                    logger.error("[Hard: " + ex.isHard() + "] " + ex.getMessage());
-                }
-            }
-            issuer.sendError(Message.ERROR__INTERNAL);
         }
     }
 

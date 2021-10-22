@@ -29,9 +29,6 @@ public class CachedConfigValues {
     private long sourceCacheTime = new TimeUtil.Time(6L, TimeUnit.HOURS).getMillis();
     public long getSourceCacheTime() { return sourceCacheTime; }
 
-    private long mcleaksCacheTime = new TimeUtil.Time(1L, TimeUnit.DAYS).getMillis();
-    public long getMCLeaksCacheTime() { return mcleaksCacheTime; }
-
     private ImmutableSet<String> ignoredIps = ImmutableSet.of();
     public ImmutableSet<String> getIgnoredIps() { return ignoredIps; }
 
@@ -55,12 +52,6 @@ public class CachedConfigValues {
 
     private ImmutableList<String> vpnActionCommands = ImmutableList.of();
     public ImmutableList<String> getVPNActionCommands() { return vpnActionCommands; }
-
-    private String mcleaksKickMessage = "&cPlease discontinue your use of an MCLeaks account!";
-    public String getMCLeaksKickMessage() { return mcleaksKickMessage; }
-
-    private ImmutableList<String> mcleaksActionCommands = ImmutableList.of();
-    public ImmutableList<String> getMCLeaksActionCommands() { return mcleaksActionCommands; }
 
     private VPNAlgorithmMethod vpnAlgorithmMethod = VPNAlgorithmMethod.CASCADE;
     public VPNAlgorithmMethod getVPNAlgorithmMethod() { return vpnAlgorithmMethod; }
@@ -112,18 +103,6 @@ public class CachedConfigValues {
             }
 
             values.sourceCacheTime = value.getMillis();
-            return this;
-        }
-
-        public CachedConfigValues.Builder mcleaksCacheTime(TimeUtil.Time value) {
-            if (value == null) {
-                throw new IllegalArgumentException("value cannot be null.");
-            }
-            if (value.getMillis() <= 0L) {
-                throw new IllegalArgumentException("value cannot be <= 0.");
-            }
-
-            values.mcleaksCacheTime = value.getMillis();
             return this;
         }
 

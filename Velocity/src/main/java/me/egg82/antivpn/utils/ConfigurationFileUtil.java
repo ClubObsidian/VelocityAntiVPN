@@ -20,6 +20,9 @@ import me.egg82.antivpn.storage.MySQL;
 import me.egg82.antivpn.storage.SQLite;
 import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.storage.StorageException;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import ninja.egg82.reflect.PackageFilter;
 import ninja.egg82.service.ServiceLocator;
 import org.reflections.Reflections;
 import org.slf4j.Logger;
@@ -51,7 +54,7 @@ public class ConfigurationFileUtil {
         }
 
         if (debug) {
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Debug ").color(TextColor.YELLOW)).append(TextComponent.of("enabled").color(TextColor.WHITE)).build());
+            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Debug ").color(NamedTextColor.YELLOW)).append(Component.text("enabled").color(NamedTextColor.WHITE)));
         }
 
         Locale language = getLanguage(config.node("lang").getString("en"));
@@ -60,14 +63,14 @@ public class ConfigurationFileUtil {
             language = Locale.US;
         }
         if (debug) {
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Default language: ").color(TextColor.YELLOW)).append(TextComponent.of(language.getCountry() == null || language.getCountry().isEmpty() ? language.getLanguage() : language.getLanguage() + "-" + language.getCountry()).color(TextColor.WHITE)).build());
+            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Default language: ").color(NamedTextColor.YELLOW)).append(Component.text(language.getCountry() == null || language.getCountry().isEmpty() ? language.getLanguage() : language.getLanguage() + "-" + language.getCountry()).color(NamedTextColor.WHITE)));
         }
 
         UUID serverID = ServerIDUtil.getID(new File(new File(description.getSource().get().getParent().toFile(), description.getName().get()), "stats-id.txt"));
 
         List<Storage> storage;
         try {
-            storage = getStorage(proxy, description, config.node("storage", "engines"), new PoolSettings(config.node("storage", "settings")), debug, config.node("storage", "order").getList(TypeToken.of(String.class)), storageHandler);
+            storage = getStorage(proxy, description, config.node("storage", "engines"), new PoolSettings(config.node("storage", "settings")), debug, config.node("storage", "order").getList(String.class), storageHandler);
         } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             storage = new ArrayList<>();
@@ -79,13 +82,13 @@ public class ConfigurationFileUtil {
 
         if (debug) {
             for (Storage s : storage) {
-                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Added storage: ").color(TextColor.YELLOW)).append(TextComponent.of(s.getClass().getSimpleName()).color(TextColor.WHITE)).build());
+                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Added storage: ").color(NamedTextColor.YELLOW)).append(Component.text(s.getClass().getSimpleName()).color(NamedTextColor.WHITE)));
             }
         }
 
         List<Messaging> messaging;
         try {
-            messaging = getMessaging(proxy, config.node("messaging", "engines"), new PoolSettings(config.node("messaging", "settings")), debug, serverID, config.node("messaging", "order").getList(TypeToken.of(String.class)), messagingHandler);
+            messaging = getMessaging(proxy, config.node("messaging", "engines"), new PoolSettings(config.node("messaging", "settings")), debug, serverID, config.node("messaging", "order").getList(String.class), messagingHandler);
         } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             messaging = new ArrayList<>();
@@ -93,14 +96,14 @@ public class ConfigurationFileUtil {
 
         if (debug) {
             for (Messaging m : messaging) {
-                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Added messaging: ").color(TextColor.YELLOW)).append(TextComponent.of(m.getClass().getSimpleName()).color(TextColor.WHITE)).build());
+                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Added messaging: ").color(NamedTextColor.YELLOW)).append(Component.text(m.getClass().getSimpleName()).color(NamedTextColor.WHITE)));
             }
         }
 
         Map<String, SourceAPI> sources = getAllSources(debug);
         Set<String> stringSources;
         try {
-            stringSources = new LinkedHashSet<>(config.node("sources", "order").getList(TypeToken.of(String.class)));
+            stringSources = new LinkedHashSet<>(config.node("sources", "order").getList(String.class));
         } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             stringSources = new LinkedHashSet<>();
@@ -110,7 +113,7 @@ public class ConfigurationFileUtil {
             String source = i.next();
             if (!config.node("sources", source, "enabled").getBoolean()) {
                 if (debug) {
-                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(source + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
+                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(source + " is disabled. Removing.").color(NamedTextColor.DARK_RED)));
                 }
                 i.remove();
                 continue;
@@ -119,7 +122,7 @@ public class ConfigurationFileUtil {
             Optional<SourceAPI> api = getAPI(source, sources);
             if (api.isPresent() && api.get().isKeyRequired() && config.node("sources", source, "key").getString("").isEmpty()) {
                 if (debug) {
-                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(source + " requires a key which was not provided. Removing.").color(TextColor.DARK_RED)).build());
+                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(source + " requires a key which was not provided. Removing.").color(NamedTextColor.DARK_RED)));
                 }
                 i.remove();
             }
@@ -128,7 +131,7 @@ public class ConfigurationFileUtil {
             Map.Entry<String, SourceAPI> kvp = i.next();
             if (!stringSources.contains(kvp.getKey())) {
                 if (debug) {
-                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Removed undefined source: ").color(TextColor.DARK_RED)).append(TextComponent.of(kvp.getKey()).color(TextColor.WHITE)).build());
+                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Removed undefined source: ").color(NamedTextColor.DARK_RED)).append(Component.text(kvp.getKey()).color(NamedTextColor.WHITE)));
                 }
                 i.remove();
             }
@@ -136,7 +139,7 @@ public class ConfigurationFileUtil {
 
         if (debug) {
             for (String source : stringSources) {
-                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Added source: ").color(TextColor.YELLOW)).append(TextComponent.of(source).color(TextColor.WHITE)).build());
+                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Added source: ").color(NamedTextColor.YELLOW)).append(Component.text(source).color(NamedTextColor.WHITE)));
             }
         }
 
@@ -147,12 +150,12 @@ public class ConfigurationFileUtil {
         }
 
         if (debug) {
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Source cache time: ").color(TextColor.YELLOW)).append(TextComponent.of(sourceCacheTime.get().getMillis() + "ms").color(TextColor.WHITE)).build());
+            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Source cache time: ").color(NamedTextColor.YELLOW)).append(Component.text(sourceCacheTime.get().getMillis() + "ms").color(NamedTextColor.WHITE)));
         }
 
         Set<String> ignoredIps;
         try {
-            ignoredIps = new HashSet<>(config.node("action", "ignore").getList(TypeToken.of(String.class)));
+            ignoredIps = new HashSet<>(config.node("action", "ignore").getList(String.class));
         } catch (SerializationException ex) {
             logger.error(ex.getMessage(), ex);
             ignoredIps = new HashSet<>();
@@ -161,7 +164,7 @@ public class ConfigurationFileUtil {
             String ip = i.next();
             if (!ValidationUtil.isValidIp(ip) && !ValidationUtil.isValidIPRange(ip)) {
                 if (debug) {
-                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Removed invalid ignore IP/range: ").color(TextColor.DARK_RED)).append(TextComponent.of(ip).color(TextColor.WHITE)).build());
+                    proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Removed invalid ignore IP/range: ").color(NamedTextColor.DARK_RED)).append(Component.text(ip).color(NamedTextColor.WHITE)));
                 }
                 i.remove();
             }
@@ -169,7 +172,7 @@ public class ConfigurationFileUtil {
 
         if (debug) {
             for (String ip : ignoredIps) {
-                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Adding ignored IP or range: ").color(TextColor.YELLOW)).append(TextComponent.of(ip).color(TextColor.WHITE)).build());
+                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Adding ignored IP or range: ").color(NamedTextColor.YELLOW)).append(Component.text(ip).color(NamedTextColor.WHITE)));
             }
         }
 
@@ -180,7 +183,7 @@ public class ConfigurationFileUtil {
         }
 
         if (debug) {
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Memory cache time: ").color(TextColor.YELLOW)).append(TextComponent.of(cacheTime.get().getMillis() + "ms").color(TextColor.WHITE)).build());
+            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Memory cache time: ").color(NamedTextColor.YELLOW)).append(Component.text(cacheTime.get().getMillis() + "ms").color(NamedTextColor.WHITE)));
         }
 
         List<String> vpnActionCommands;
@@ -194,7 +197,7 @@ public class ConfigurationFileUtil {
 
         if (debug) {
             for (String action : vpnActionCommands) {
-                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Including command action for VPN usage: ").color(TextColor.YELLOW)).append(TextComponent.of(action).color(TextColor.WHITE)).build());
+                proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("Including command action for VPN usage: ").color(NamedTextColor.YELLOW)).append(Component.text(action).color(NamedTextColor.WHITE)));
             }
         }
         VPNAlgorithmMethod vpnAlgorithmMethod = VPNAlgorithmMethod.getByName(config.node("action", "vpn", "algorithm", "method").getString("cascade"));
@@ -230,8 +233,8 @@ public class ConfigurationFileUtil {
         VPNAPI.reload();
 
         if (debug) {
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("API threads: ").color(TextColor.YELLOW)).append(TextComponent.of(cachedValues.getThreads()).color(TextColor.WHITE)).build());
-            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("API timeout: ").color(TextColor.YELLOW)).append(TextComponent.of(cachedValues.getTimeout() + "ms").color(TextColor.WHITE)).build());
+            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("API threads: ").color(NamedTextColor.YELLOW)).append(Component.text(cachedValues.getThreads()).color(NamedTextColor.WHITE)));
+            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text("API timeout: ").color(NamedTextColor.YELLOW)).append(Component.text(cachedValues.getTimeout() + "ms").color(NamedTextColor.WHITE)));
         }
     }
 
@@ -261,7 +264,10 @@ public class ConfigurationFileUtil {
             }
         }
 
-        YamlConfigurationLoader loader = YamlConfigurationLoader.builder().nodeStyle(NodeStyle.BLOCK).indent(2).file(fileOnDisk).build();
+        YamlConfigurationLoader loader = YamlConfigurationLoader.builder().nodeStyle(NodeStyle.BLOCK)
+                .indent(2)
+                .file(fileOnDisk)
+                .build();
         ConfigurationNode root = loader.load(ConfigurationOptions.defaults().header("Comments are gone because update :(. Click here for new config + comments: https://forums.velocitypowered.com/t/anti-vpn-get-the-best-save-money-on-overpriced-plugins-and-block-vpn-users/207"));
         ConfigurationVersionUtil.conformVersion(loader, root, fileOnDisk);
         return root;
@@ -290,7 +296,7 @@ public class ConfigurationFileUtil {
                 case "mysql": {
                     if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
-                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
+                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(name + " is disabled. Removing.").color(NamedTextColor.DARK_RED)));
                         }
                         continue;
                     }
@@ -308,8 +314,7 @@ public class ConfigurationFileUtil {
                                         .options(options)
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, settings.timeout)
-                                        .build()
-                        );
+                                        .build());
                     } catch (IOException | StorageException ex) {
                         logger.error("Could not create MySQL instance.", ex);
                     }
@@ -318,7 +323,7 @@ public class ConfigurationFileUtil {
                 case "redis": {
                     if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
-                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
+                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(name + " is disabled. Removing.").color(NamedTextColor.DARK_RED)));
                         }
                         continue;
                     }
@@ -331,8 +336,7 @@ public class ConfigurationFileUtil {
                                         .credentials(connectionNode.node("password").getString(""))
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, (int) settings.timeout)
-                                        .build()
-                        );
+                                        .build());
                     } catch (StorageException ex) {
                         logger.error("Could not create Redis instance.", ex);
                     }
@@ -341,7 +345,7 @@ public class ConfigurationFileUtil {
                 case "sqlite": {
                     if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
-                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
+                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(name + " is disabled. Removing.").color(NamedTextColor.DARK_RED)));
                         }
                         continue;
                     }
@@ -358,8 +362,7 @@ public class ConfigurationFileUtil {
                                         .options(options)
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, settings.timeout)
-                                        .build()
-                        );
+                                        .build());
                     } catch (IOException | StorageException ex) {
                         logger.error("Could not create SQLite instance.", ex);
                     }
@@ -384,7 +387,7 @@ public class ConfigurationFileUtil {
                 case "rabbitmq": {
                     if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
-                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
+                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(name + " is disabled. Removing.").color(NamedTextColor.DARK_RED)));
                         }
                         continue;
                     }
@@ -396,8 +399,7 @@ public class ConfigurationFileUtil {
                                         .url(url.address, url.port, connectionNode.node("v-host").getString("/"))
                                         .credentials(connectionNode.node("username").getString("guest"), connectionNode.node("password").getString("guest"))
                                         .timeout((int) settings.timeout)
-                                        .build()
-                        );
+                                        .build());
                     } catch (MessagingException ex) {
                         logger.error("Could not create RabbitMQ instance.", ex);
                     }
@@ -406,7 +408,7 @@ public class ConfigurationFileUtil {
                 case "redis": {
                     if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
-                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
+                            proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(Component.text(name + " is disabled. Removing.").color(NamedTextColor.DARK_RED)));
                         }
                         continue;
                     }
@@ -419,8 +421,7 @@ public class ConfigurationFileUtil {
                                         .credentials(connectionNode.node("password").getString(""))
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, (int) settings.timeout)
-                                        .build()
-                        );
+                                        .build());
                     } catch (MessagingException ex) {
                         logger.error("Could not create Redis instance.", ex);
                     }

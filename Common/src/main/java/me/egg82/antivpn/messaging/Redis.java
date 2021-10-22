@@ -116,8 +116,7 @@ public class Redis extends JedisPubSub implements Messaging {
                         redis.subscribe(result,
                                 "antivpn-ip",
                                 "antivpn-player",
-                                "antivpn-post-vpn",
-                                "antivpn-post-mcleaks"
+                                "antivpn-post-vpn"
                         );
                     } catch (JedisException ex) {
                         if (!result.isClosed()) {
@@ -224,27 +223,6 @@ public class Redis extends JedisPubSub implements Messaging {
         }
     }
 
-    public void sendPostMCLeaks(UUID messageID, long id, long longPlayerID, UUID playerID, boolean value, long created) throws MessagingException {
-        if (messageID == null) {
-            throw new IllegalArgumentException("messageID cannot be null.");
-        }
-        if (playerID == null) {
-            throw new IllegalArgumentException("playerID cannot be null.");
-        }
-
-        try (Jedis redis = pool.getResource()) {
-            JSONObject obj = createJSON(messageID);
-            obj.put("id", id);
-            obj.put("longPlayerID", longPlayerID);
-            obj.put("playerID", playerID.toString());
-            obj.put("value", value);
-            obj.put("created", created);
-            redis.publish("antivpn-post-vpn", obj.toJSONString());
-        } catch (JedisException ex) {
-            throw new MessagingException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
     private JSONObject createJSON(UUID messageID) {
         JSONObject retVal = new JSONObject();
         retVal.put("sender", serverID);
@@ -273,9 +251,6 @@ public class Redis extends JedisPubSub implements Messaging {
                     break;
                 case "antivpn-post-vpn":
                     receivePostVPN(message);
-                    break;
-                case "antivpn-post-mcleaks":
-                    receivePostMCLeaks(message);
                     break;
                 default:
                     logger.warn("Got data from channel that should not exist.");
@@ -378,40 +353,6 @@ public class Redis extends JedisPubSub implements Messaging {
                 ip,
                 obj.get("cascade") == null ? Optional.empty() : Optional.of((Boolean) obj.get("cascade")),
                 obj.get("consensus") == null ? Optional.empty() : Optional.of(((Number) obj.get("consensus")).doubleValue()),
-                ((Number) obj.get("created")).longValue(),
-                this
-        );
-    }
-
-    private void receivePostMCLeaks(String json) throws ParseException, ClassCastException {
-        JSONObject obj = JSONUtil.parseObject(json);
-        String sender = (String) obj.get("sender");
-        if (!ValidationUtil.isValidUuid(sender)) {
-            logger.warn("Non-valid sender received in post MCLeaks: \"" + sender + "\".");
-            return;
-        }
-        if (serverID.equals(sender)) {
-            return;
-        }
-
-        String messageID = (String) obj.get("messageID");
-        if (!ValidationUtil.isValidUuid(messageID)) {
-            logger.warn("Non-valid message ID received in post MCLeaks: \"" + messageID + "\".");
-            return;
-        }
-
-        String playerID = (String) obj.get("playerID");
-        if (!ValidationUtil.isValidUuid(playerID)) {
-            logger.warn("Non-valid UUID received in post MCLeaks: \"" + playerID + "\".");
-            return;
-        }
-
-        handler.postMCLeaksCallback(
-                UUID.fromString(messageID),
-                ((Number) obj.get("id")).longValue(),
-                ((Number) obj.get("longPlayerID")).longValue(),
-                UUID.fromString(playerID),
-                (Boolean) obj.get("value"),
                 ((Number) obj.get("created")).longValue(),
                 this
         );

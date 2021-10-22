@@ -81,7 +81,7 @@ public class AntiVPNCommand extends BaseCommand {
     @CatchUnknown @Default
     @CommandCompletion("@subcommand")
     public void onDefault(CommandSource source, String[] args) {
-        proxy.getCommandManager().execute(source, "antivpn help");
+        proxy.getCommandManager().executeAsync(source, "antivpn help");
     }
 
     @HelpCommand

@@ -139,21 +139,6 @@ public class RabbitMQ implements Messaging {
             }
         };
         postVPNChannel.basicConsume(postVPNQueue, true, postVPNConsumer);
-
-        RecoverableChannel postMCLeaksChannel = getChannel();
-        postMCLeaksChannel.exchangeDeclare("antivpn-post-mcleaks", ExchangeType.FANOUT.getType(), true);
-        String postMCLeaksQueue = postMCLeaksChannel.queueDeclare().getQueue();
-        postMCLeaksChannel.queueBind(postMCLeaksQueue, "antivpn-post-mcleaks", "");
-        Consumer postMCLeaksConsumer = new DefaultConsumer(postMCLeaksChannel) {
-            public void handleDelivery(String tag, Envelope envelope, AMQP.BasicProperties props, byte[] body) throws IOException {
-                try {
-                    receivePostMCLeaks(props, new String(body, props.getContentEncoding()));
-                } catch (ParseException | ClassCastException ex) {
-                    logger.warn("Could not parse incoming data.", ex);
-                }
-            }
-        };
-        postMCLeaksChannel.basicConsume(postMCLeaksQueue, true, postMCLeaksConsumer);
     }
 
     public void sendIP(UUID messageID, long longIPID, String ip) throws MessagingException {
@@ -231,31 +216,6 @@ public class RabbitMQ implements Messaging {
             AMQP.BasicProperties props = getProperties(DeliveryMode.PERSISTENT);
             channel.exchangeDeclare("antivpn-post-vpn", ExchangeType.FANOUT.getType(), true);
             channel.basicPublish("antivpn-post-vpn", "", props, obj.toJSONString().getBytes(props.getContentEncoding()));
-        } catch (IOException ex) {
-            throw new MessagingException(false, ex);
-        } catch (TimeoutException ex) {
-            throw new MessagingException(true, ex);
-        }
-    }
-
-    public void sendPostMCLeaks(UUID messageID, long id, long longPlayerID, UUID playerID, boolean value, long created) throws MessagingException {
-        if (messageID == null) {
-            throw new IllegalArgumentException("messageID cannot be null.");
-        }
-        if (playerID == null) {
-            throw new IllegalArgumentException("playerID cannot be null.");
-        }
-
-        try (RecoverableChannel channel = getChannel()) {
-            JSONObject obj = new JSONObject();
-            obj.put("id", id);
-            obj.put("longPlayerID", longPlayerID);
-            obj.put("playerID", playerID.toString());
-            obj.put("value", value);
-            obj.put("created", created);
-            AMQP.BasicProperties props = getProperties(DeliveryMode.PERSISTENT);
-            channel.exchangeDeclare("antivpn-post-mcleaks", ExchangeType.FANOUT.getType(), true);
-            channel.basicPublish("antivpn-post-mcleaks", "", props, obj.toJSONString().getBytes(props.getContentEncoding()));
         } catch (IOException ex) {
             throw new MessagingException(false, ex);
         } catch (TimeoutException ex) {
@@ -377,43 +337,6 @@ public class RabbitMQ implements Messaging {
                 ip,
                 obj.get("cascade") == null ? Optional.empty() : Optional.of((Boolean) obj.get("cascade")),
                 obj.get("consensus") == null ? Optional.empty() : Optional.of(((Number) obj.get("consensus")).doubleValue()),
-                ((Number) obj.get("created")).longValue(),
-                this
-        );
-    }
-
-    private void receivePostMCLeaks(AMQP.BasicProperties props, String json) throws UnsupportedEncodingException, ParseException, ClassCastException {
-        if (props.getHeaders() == null || props.getHeaders().isEmpty()) {
-            logger.warn("Properties for received post MCLeaks was null or empty.");
-            return;
-        }
-        String sender = new String(((LongString) props.getHeaders().get("sender")).getBytes(), props.getContentEncoding());
-        if (!ValidationUtil.isValidUuid(sender)) {
-            logger.warn("Non-valid sender received in post MCLeaks: \"" + sender + "\".");
-            return;
-        }
-        if (serverID.equals(sender)) {
-            return;
-        }
-
-        if (!ValidationUtil.isValidUuid(props.getMessageId())) {
-            logger.warn("Non-valid message ID received in post MCLeaks: \"" + props.getMessageId() + "\".");
-            return;
-        }
-
-        JSONObject obj = JSONUtil.parseObject(json);
-        String playerID = (String) obj.get("playerID");
-        if (!ValidationUtil.isValidUuid(playerID)) {
-            logger.warn("Non-valid UUID received in post MCLeaks: \"" + playerID + "\".");
-            return;
-        }
-
-        handler.postMCLeaksCallback(
-                UUID.fromString(props.getMessageId()),
-                ((Number) obj.get("id")).longValue(),
-                ((Number) obj.get("longPlayerID")).longValue(),
-                UUID.fromString(playerID),
-                (Boolean) obj.get("value"),
                 ((Number) obj.get("created")).longValue(),
                 this
         );

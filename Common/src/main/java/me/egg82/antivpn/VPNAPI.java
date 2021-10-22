@@ -23,11 +23,11 @@ import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.storage.StorageException;
 import me.egg82.antivpn.utils.ConfigUtil;
 import me.egg82.antivpn.utils.ValidationUtil;
-import me.gong.mcleaks.MCLeaksAPI;
 import ninja.egg82.service.ServiceLocator;
 import ninja.egg82.service.ServiceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class VPNAPI {
     private static final Logger logger = LoggerFactory.getLogger(VPNAPI.class);
@@ -40,14 +40,12 @@ public class VPNAPI {
 
     public static VPNAPI getInstance() { return api; }
 
-    private static MCLeaksAPI mcleaksAPI = null;
-    private static LoadingCache<UUID, Boolean> mcleaksCache = null;
     private static LoadingCache<String, Boolean> cascadeCache = null;
     private static LoadingCache<String, Double> consensusCache = null;
     private static LoadingCache<String, Boolean> sourceValidationCache = Caffeine.newBuilder().expireAfterWrite(1L, TimeUnit.MINUTES).build(k -> Boolean.TRUE);
 
     public static void reload() {
-        Optional<Configuration> config = ConfigUtil.getConfig();
+        Optional<ConfigurationNode> config = ConfigUtil.getConfig();
         if (!config.isPresent()) {
             logger.error("Could not get configuration.");
             return;
@@ -58,26 +56,8 @@ public class VPNAPI {
             return;
         }
 
-        mcleaksCache = Caffeine.newBuilder().expireAfterAccess(cachedConfig.get().getCacheTime().getTime(), cachedConfig.get().getCacheTime().getUnit()).expireAfterWrite(cachedConfig.get().getCacheTime().getTime(), cachedConfig.get().getCacheTime().getUnit()).build(VPNAPI::mcleaksExpensive);
         cascadeCache = Caffeine.newBuilder().expireAfterAccess(cachedConfig.get().getCacheTime().getTime(), cachedConfig.get().getCacheTime().getUnit()).expireAfterWrite(cachedConfig.get().getCacheTime().getTime(), cachedConfig.get().getCacheTime().getUnit()).build(VPNAPI::cascadeExpensive);
         consensusCache = Caffeine.newBuilder().expireAfterAccess(cachedConfig.get().getCacheTime().getTime(), cachedConfig.get().getCacheTime().getUnit()).expireAfterWrite(cachedConfig.get().getCacheTime().getTime(), cachedConfig.get().getCacheTime().getUnit()).build(VPNAPI::consensusExpensive);
-
-        if (mcleaksAPI != null) {
-            mcleaksAPI.shutdown();
-        }
-
-        mcleaksAPI = MCLeaksAPI.builder()
-                .nocache()
-                .threadCount(cachedConfig.get().getThreads())
-                .userAgent("egg82/AntiVPN")
-                .apiKey(config.get().getNode("mcleaks", "key").getString(""))
-                .build();
-    }
-
-    public static void close() {
-        if (mcleaksAPI != null) {
-            mcleaksAPI.shutdown();
-        }
     }
 
     public Map<String, Optional<Boolean>> testAllSources(String ip) throws APIException {
@@ -203,22 +183,6 @@ public class VPNAPI {
         Double value = consensusCache.get(ip);
         if (value == null) {
             throw new APIException(false, "Could not get VPN result.");
-        }
-        return value;
-    }
-
-    public boolean isMCLeaks(UUID playerID) throws APIException {
-        if (playerID == null) {
-            throw new APIException(false, "playerID cannot be null.");
-        }
-
-        if (mcleaksAPI == null || mcleaksCache == null) {
-            throw new APIException(false, "API not yet initialized.");
-        }
-
-        Boolean value = mcleaksCache.get(playerID);
-        if (value == null) {
-            throw new APIException(false, "Could not get MCLeaks result.");
         }
         return value;
     }
@@ -580,139 +544,6 @@ public class VPNAPI {
 
             if (!handled) {
                 throw new APIException(!canRecover, "Could not send VPN through messaging.");
-            }
-        }
-
-        numSentMessages.getAndIncrement();
-        return value;
-    }
-
-    private static boolean mcleaksExpensive(UUID playerID) throws APIException {
-        Optional<CachedConfigValues> cachedConfig = ConfigUtil.getCachedConfig();
-        if (!cachedConfig.isPresent()) {
-            throw new APIException(false, "Could not get cached config.");
-        }
-
-        MCLeaksResult result = null;
-        for (Storage s : cachedConfig.get().getStorage()) {
-            if (cachedConfig.get().getDebug()) {
-                logger.info("Getting MCLeaks result from " + s.getClass().getSimpleName());
-            }
-            try {
-                result = s.getMCLeaksByPlayer(playerID, cachedConfig.get().getMCLeaksCacheTime());
-                break;
-            } catch (StorageException ex) {
-                if (cachedConfig.get().getDebug()) {
-                    logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage(), ex);
-                } else {
-                    logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage());
-                }
-            }
-        }
-        if (result != null) {
-            if (cachedConfig.get().getDebug()) {
-                logger.info("Got MCLeaks result: " + playerID + " = " + result.getValue());
-            }
-            return result.getValue();
-        }
-
-        if (cachedConfig.get().getDebug()) {
-            logger.info("Getting MCLeaks result from API");
-        }
-
-        MCLeaksAPI.Result apiResult = mcleaksAPI.checkAccount(playerID);
-        if (apiResult.hasError()) {
-            throw new APIException(false, apiResult.getError());
-        }
-
-        boolean value = apiResult.isMCLeaks();
-
-        if (cachedConfig.get().getDebug()) {
-            logger.info("Got MCLeaks result: " + playerID + " = " + value);
-            logger.info("Propagating to storage & messaging");
-        }
-
-        StorageMessagingHandler handler;
-        try {
-            handler = ServiceLocator.get(StorageMessagingHandler.class);
-        } catch (InstantiationException | IllegalAccessException | ServiceNotFoundException ex) {
-            throw new APIException(false, "Could not get handler service.");
-        }
-
-        PostMCLeaksResult postResult = null;
-        Storage postedStorage = null;
-        boolean canRecover = false;
-        for (Storage s : cachedConfig.get().getStorage()) {
-            try {
-                postResult = s.postMCLeaks(playerID, value);
-                postedStorage = s;
-                break;
-            } catch (StorageException ex) {
-                if (cachedConfig.get().getDebug()) {
-                    logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage(), ex);
-                } else {
-                    logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage());
-                }
-                if (ex.isAutomaticallyRecoverable()) {
-                    canRecover = true;
-                }
-            }
-        }
-        if (postResult == null) {
-            throw new APIException(!canRecover, "Could not put MCLeaks in storage.");
-        }
-
-        handler.cacheMCLeaksPost(postResult.getID());
-        for (Storage s : cachedConfig.get().getStorage()) {
-            try {
-                if (s == postedStorage) {
-                    continue;
-                }
-                s.postMCLeaksRaw(
-                        postResult.getID(),
-                        postResult.getLongPlayerID(),
-                        postResult.getValue(),
-                        postResult.getCreated()
-                );
-            } catch (StorageException ex) {
-                if (cachedConfig.get().getDebug()) {
-                    logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage(), ex);
-                } else {
-                    logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage());
-                }
-            }
-        }
-
-        canRecover = false;
-        if (cachedConfig.get().getMessaging().size() > 0) {
-            boolean handled = false;
-            UUID messageID = UUID.randomUUID();
-            handler.cacheMessage(messageID);
-            for (Messaging m : cachedConfig.get().getMessaging()) {
-                try {
-                    m.sendPostMCLeaks(
-                            messageID,
-                            postResult.getID(),
-                            postResult.getLongPlayerID(),
-                            postResult.getPlayerID(),
-                            postResult.getValue(),
-                            postResult.getCreated()
-                    );
-                    handled = true;
-                } catch (MessagingException ex) {
-                    if (cachedConfig.get().getDebug()) {
-                        logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage(), ex);
-                    } else {
-                        logger.error("[Recoverable: " + ex.isAutomaticallyRecoverable() + "] " + ex.getMessage());
-                    }
-                    if (ex.isAutomaticallyRecoverable()) {
-                        canRecover = true;
-                    }
-                }
-            }
-
-            if (!handled) {
-                throw new APIException(!canRecover, "Could not send MCLeaks through messaging.");
             }
         }
 

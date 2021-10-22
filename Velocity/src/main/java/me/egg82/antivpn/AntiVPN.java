@@ -22,6 +22,7 @@ import me.egg82.antivpn.services.PluginMessageFormatter;
 import me.egg82.antivpn.services.StorageMessagingHandler;
 import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.utils.*;
+import net.kyori.adventure.text.format.NamedTextColor;
 import ninja.egg82.service.ServiceLocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,8 +122,10 @@ public class AntiVPN {
 
         this.commandManager.setFormat(MessageType.ERROR, new PluginMessageFormatter(commandManager, Message.GENERAL__HEADER));
         this.commandManager.setFormat(MessageType.INFO, new PluginMessageFormatter(commandManager, Message.GENERAL__HEADER));
-        this.commandManager.setFormat(MessageType.ERROR, TextColor.DARK_RED, TextColor.YELLOW, TextColor.AQUA, TextColor.WHITE);
-        this.commandManager.setFormat(MessageType.INFO, TextColor.WHITE, TextColor.YELLOW, TextColor.AQUA, TextColor.GREEN, TextColor.RED, TextColor.GOLD, TextColor.BLUE, TextColor.GRAY);
+        this.commandManager.setFormat(MessageType.ERROR, NamedTextColor.DARK_RED, NamedTextColor.YELLOW, NamedTextColor.AQUA,
+                NamedTextColor.WHITE);
+        this.commandManager.setFormat(MessageType.INFO, NamedTextColor.WHITE, NamedTextColor.YELLOW, NamedTextColor.AQUA,
+                NamedTextColor.GREEN, NamedTextColor.RED, NamedTextColor.GOLD, NamedTextColor.BLUE, NamedTextColor.GRAY);
     }
 
     private void loadServices() {

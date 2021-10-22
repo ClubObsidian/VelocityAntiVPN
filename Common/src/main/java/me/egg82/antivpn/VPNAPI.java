@@ -11,8 +11,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import me.egg82.antivpn.apis.SourceAPI;
-import me.egg82.antivpn.core.MCLeaksResult;
-import me.egg82.antivpn.core.PostMCLeaksResult;
 import me.egg82.antivpn.core.PostVPNResult;
 import me.egg82.antivpn.core.VPNResult;
 import me.egg82.antivpn.extended.CachedConfigValues;

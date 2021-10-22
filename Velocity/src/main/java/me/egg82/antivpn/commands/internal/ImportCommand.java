@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.Set;
 import me.egg82.antivpn.core.IPResult;
 import me.egg82.antivpn.core.PlayerResult;
-import me.egg82.antivpn.core.RawMCLeaksResult;
 import me.egg82.antivpn.core.RawVPNResult;
 import me.egg82.antivpn.enums.Message;
 import me.egg82.antivpn.extended.CachedConfigValues;

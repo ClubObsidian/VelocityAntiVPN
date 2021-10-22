@@ -259,13 +259,6 @@ sources:
     # API key to use (Required for this service, free one available at https://ipwarner.com/register )
     key: ''
 
-mcleaks:
-  # The amount of time to globally cache results
-  # This should be as high as possible to avoid rate-limits but as low as possible to ensure results are always up-to-date and accurate
-  cache-time: '1day'
-  # Optional API key to use (e-mail API author, following instructions from "I'm frequently hitting your rate limit/my server has large influxes of players" at https://github.com/TheMrGong/MCLeaksApiClient#faq )
-  key: ''
-
 action:
   vpn:
     # The kick message to display to players who are using VPNs
@@ -298,19 +291,8 @@ action:
       # For example, if set to "0.6" then at least 60% of sources must agree that the IP is a VPN
       # The value can range from 0 to 1, and will be clipped at those values
       min-consensus: 0.6
-  mcleaks:
-    # The kick message to display to players who are using MCLeaks accounts
-    # If left blank, will not kick the player
-    kick-message: '&cPlease discontinue your use of an MCLeaks account!'
-    # The commands that CONSOLE will run for players who are using MCLeaks accounts
-    # Use %player% as a placeholder for the player's (real) name
-    # Use %uuid% as a placeholder for the player's uuid
-    # Use %ip% as a placeholder for the player's IP
-    # If left blank, will not run anything
-    commands:
-      - ''
 
-  # IPs and ranges to ignore when checking for VPNs and/or MCLeaks accounts
+  # IPs and ranges to ignore when checking for VPNs
   ignore:
   - '127.0.0.0/8'
   - '10.0.0.0/8'

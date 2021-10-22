@@ -11,7 +11,6 @@ import me.egg82.antivpn.VPNAPI;
 import me.egg82.antivpn.apis.SourceAPI;
 import me.egg82.antivpn.enums.VPNAlgorithmMethod;
 import me.egg82.antivpn.extended.CachedConfigValues;
-import me.egg82.antivpn.extended.Configuration;
 import me.egg82.antivpn.messaging.Messaging;
 import me.egg82.antivpn.messaging.MessagingException;
 import me.egg82.antivpn.messaging.RabbitMQ;
@@ -23,17 +22,13 @@ import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.storage.StorageException;
 import net.kyori.text.TextComponent;
 import net.kyori.text.format.TextColor;
-import ninja.egg82.reflect.PackageFilter;
-import ninja.egg82.service.ServiceLocator;
-import ninja.leaping.configurate.ConfigurationNode;
-import ninja.leaping.configurate.ConfigurationOptions;
-import ninja.leaping.configurate.loader.ConfigurationLoader;
-import ninja.leaping.configurate.objectmapping.ObjectMappingException;
-import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 import org.reflections.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.DumperOptions;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.ConfigurationOptions;
+import org.spongepowered.configurate.yaml.NodeStyle;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 public class ConfigurationFileUtil {
     private static final Logger logger = LoggerFactory.getLogger(ConfigurationFileUtil.class);
@@ -41,7 +36,7 @@ public class ConfigurationFileUtil {
     private ConfigurationFileUtil() {}
 
     public static void reloadConfig(Object plugin, ProxyServer proxy, PluginDescription description, StorageHandler storageHandler, MessagingHandler messagingHandler) {
-        Configuration config;
+        ConfigurationNode config;
         try {
             config = getConfig(plugin, "config.yml", new File(new File(description.getSource().get().getParent().toFile(), description.getName().get()), "config.yml"));
         } catch (IOException ex) {
@@ -49,7 +44,7 @@ public class ConfigurationFileUtil {
             return;
         }
 
-        boolean debug = config.getNode("debug").getBoolean(false);
+        boolean debug = config.node("debug").getBoolean(false);
 
         if (!debug) {
             Reflections.log = null;
@@ -59,7 +54,7 @@ public class ConfigurationFileUtil {
             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Debug ").color(TextColor.YELLOW)).append(TextComponent.of("enabled").color(TextColor.WHITE)).build());
         }
 
-        Locale language = getLanguage(config.getNode("lang").getString("en"));
+        Locale language = getLanguage(config.node("lang").getString("en"));
         if (language == null) {
             logger.warn("lang is not a valid language. Using default value.");
             language = Locale.US;
@@ -72,7 +67,7 @@ public class ConfigurationFileUtil {
 
         List<Storage> storage;
         try {
-            storage = getStorage(proxy, description, config.getNode("storage", "engines"), new PoolSettings(config.getNode("storage", "settings")), debug, config.getNode("storage", "order").getList(TypeToken.of(String.class)), storageHandler);
+            storage = getStorage(proxy, description, config.node("storage", "engines"), new PoolSettings(config.node("storage", "settings")), debug, config.node("storage", "order").getList(TypeToken.of(String.class)), storageHandler);
         } catch (ObjectMappingException ex) {
             logger.error(ex.getMessage(), ex);
             storage = new ArrayList<>();
@@ -90,7 +85,7 @@ public class ConfigurationFileUtil {
 
         List<Messaging> messaging;
         try {
-            messaging = getMessaging(proxy, config.getNode("messaging", "engines"), new PoolSettings(config.getNode("messaging", "settings")), debug, serverID, config.getNode("messaging", "order").getList(TypeToken.of(String.class)), messagingHandler);
+            messaging = getMessaging(proxy, config.node("messaging", "engines"), new PoolSettings(config.node("messaging", "settings")), debug, serverID, config.node("messaging", "order").getList(TypeToken.of(String.class)), messagingHandler);
         } catch (ObjectMappingException ex) {
             logger.error(ex.getMessage(), ex);
             messaging = new ArrayList<>();
@@ -105,7 +100,7 @@ public class ConfigurationFileUtil {
         Map<String, SourceAPI> sources = getAllSources(debug);
         Set<String> stringSources;
         try {
-            stringSources = new LinkedHashSet<>(config.getNode("sources", "order").getList(TypeToken.of(String.class)));
+            stringSources = new LinkedHashSet<>(config.node("sources", "order").getList(TypeToken.of(String.class)));
         } catch (ObjectMappingException ex) {
             logger.error(ex.getMessage(), ex);
             stringSources = new LinkedHashSet<>();
@@ -113,7 +108,7 @@ public class ConfigurationFileUtil {
 
         for (Iterator<String> i = stringSources.iterator(); i.hasNext();) {
             String source = i.next();
-            if (!config.getNode("sources", source, "enabled").getBoolean()) {
+            if (!config.node("sources", source, "enabled").getBoolean()) {
                 if (debug) {
                     proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(source + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
                 }
@@ -122,7 +117,7 @@ public class ConfigurationFileUtil {
             }
 
             Optional<SourceAPI> api = getAPI(source, sources);
-            if (api.isPresent() && api.get().isKeyRequired() && config.getNode("sources", source, "key").getString("").isEmpty()) {
+            if (api.isPresent() && api.get().isKeyRequired() && config.node("sources", source, "key").getString("").isEmpty()) {
                 if (debug) {
                     proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(source + " requires a key which was not provided. Removing.").color(TextColor.DARK_RED)).build());
                 }
@@ -145,7 +140,7 @@ public class ConfigurationFileUtil {
             }
         }
 
-        Optional<TimeUtil.Time> sourceCacheTime = TimeUtil.getTime(config.getNode("sources", "cache-time").getString("6hours"));
+        Optional<TimeUtil.Time> sourceCacheTime = TimeUtil.getTime(config.node("sources", "cache-time").getString("6hours"));
         if (!sourceCacheTime.isPresent()) {
             logger.warn("sources.cache-time is not a valid time pattern. Using default value.");
             sourceCacheTime = Optional.of(new TimeUtil.Time(6L, TimeUnit.HOURS));
@@ -155,7 +150,7 @@ public class ConfigurationFileUtil {
             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of("Source cache time: ").color(TextColor.YELLOW)).append(TextComponent.of(sourceCacheTime.get().getMillis() + "ms").color(TextColor.WHITE)).build());
         }
 
-        Optional<TimeUtil.Time> mcleaksCacheTime = TimeUtil.getTime(config.getNode("mcleaks", "cache-time").getString("1day"));
+        Optional<TimeUtil.Time> mcleaksCacheTime = TimeUtil.getTime(config.node("mcleaks", "cache-time").getString("1day"));
         if (!mcleaksCacheTime.isPresent()) {
             logger.warn("mcleaks.cache-time is not a valid time pattern. Using default value.");
             mcleaksCacheTime = Optional.of(new TimeUtil.Time(1L, TimeUnit.DAYS));
@@ -167,7 +162,7 @@ public class ConfigurationFileUtil {
 
         Set<String> ignoredIps;
         try {
-            ignoredIps = new HashSet<>(config.getNode("action", "ignore").getList(TypeToken.of(String.class)));
+            ignoredIps = new HashSet<>(config.node("action", "ignore").getList(TypeToken.of(String.class)));
         } catch (ObjectMappingException ex) {
             logger.error(ex.getMessage(), ex);
             ignoredIps = new HashSet<>();
@@ -188,7 +183,7 @@ public class ConfigurationFileUtil {
             }
         }
 
-        Optional<TimeUtil.Time> cacheTime = TimeUtil.getTime(config.getNode("connection", "cache-time").getString("1minute"));
+        Optional<TimeUtil.Time> cacheTime = TimeUtil.getTime(config.node("connection", "cache-time").getString("1minute"));
         if (!cacheTime.isPresent()) {
             logger.warn("connection.cache-time is not a valid time pattern. Using default value.");
             cacheTime = Optional.of(new TimeUtil.Time(1L, TimeUnit.MINUTES));
@@ -200,7 +195,7 @@ public class ConfigurationFileUtil {
 
         List<String> vpnActionCommands;
         try {
-            vpnActionCommands = new ArrayList<>(config.getNode("action", "vpn", "commands").getList(TypeToken.of(String.class)));
+            vpnActionCommands = new ArrayList<>(config.node("action", "vpn", "commands").getList(TypeToken.of(String.class)));
         } catch (ObjectMappingException ex) {
             logger.error(ex.getMessage(), ex);
             vpnActionCommands = new ArrayList<>();
@@ -215,7 +210,7 @@ public class ConfigurationFileUtil {
 
         List<String> mcleaksActionCommands;
         try {
-            mcleaksActionCommands = new ArrayList<>(config.getNode("action", "mcleaks", "commands").getList(TypeToken.of(String.class)));
+            mcleaksActionCommands = new ArrayList<>(config.node("action", "mcleaks", "commands").getList(TypeToken.of(String.class)));
         } catch (ObjectMappingException ex) {
             logger.error(ex.getMessage(), ex);
             mcleaksActionCommands = new ArrayList<>();
@@ -228,13 +223,13 @@ public class ConfigurationFileUtil {
             }
         }
 
-        VPNAlgorithmMethod vpnAlgorithmMethod = VPNAlgorithmMethod.getByName(config.getNode("action", "vpn", "algorithm", "method").getString("cascade"));
+        VPNAlgorithmMethod vpnAlgorithmMethod = VPNAlgorithmMethod.getByName(config.node("action", "vpn", "algorithm", "method").getString("cascade"));
         if (vpnAlgorithmMethod == null) {
             logger.warn("action.vpn.algorithm.method is not a valid type. Using default value.");
             vpnAlgorithmMethod = VPNAlgorithmMethod.CASCADE;
         }
 
-        double vpnAlgorithmConsensus = config.getNode("action", "vpn", "algorithm", "min-consensus").getDouble(0.6d);
+        double vpnAlgorithmConsensus = config.node("action", "vpn", "algorithm", "min-consensus").getDouble(0.6d);
         vpnAlgorithmConsensus = Math.max(0.0d, Math.min(1.0d, vpnAlgorithmConsensus));
 
         CachedConfigValues cachedValues = CachedConfigValues.builder()
@@ -246,11 +241,11 @@ public class ConfigurationFileUtil {
                 .mcleaksCacheTime(mcleaksCacheTime.get())
                 .ignoredIps(ignoredIps)
                 .cacheTime(cacheTime.get())
-                .threads(config.getNode("connection", "threads").getInt(4))
-                .timeout(config.getNode("connection", "timeout").getLong(5000L))
-                .vpnKickMessage(config.getNode("action", "vpn", "kick-message").getString("&cPlease disconnect from your proxy or VPN before re-joining!"))
+                .threads(config.node("connection", "threads").getInt(4))
+                .timeout(config.node("connection", "timeout").getLong(5000L))
+                .vpnKickMessage(config.node("action", "vpn", "kick-message").getString("&cPlease disconnect from your proxy or VPN before re-joining!"))
                 .vpnActionCommands(vpnActionCommands)
-                .mcleaksKickMessage(config.getNode("action", "mcleaks", "kick-message").getString("&cPlease discontinue your use of an MCLeaks account!"))
+                .mcleaksKickMessage(config.node("action", "mcleaks", "kick-message").getString("&cPlease discontinue your use of an MCLeaks account!"))
                 .mcleaksActionCommands(mcleaksActionCommands)
                 .vpnAlgorithmMethod(vpnAlgorithmMethod)
                 .vpnAlgorithmConsensus(vpnAlgorithmConsensus)
@@ -269,7 +264,7 @@ public class ConfigurationFileUtil {
         }
     }
 
-    public static Configuration getConfig(Object plugin, String resourcePath, File fileOnDisk) throws IOException {
+    public static ConfigurationNode getConfig(Object plugin, String resourcePath, File fileOnDisk) throws IOException {
         File parentDir = fileOnDisk.getParentFile();
         if (parentDir.exists() && !parentDir.isDirectory()) {
             Files.delete(parentDir.toPath());
@@ -295,12 +290,10 @@ public class ConfigurationFileUtil {
             }
         }
 
-        ConfigurationLoader<ConfigurationNode> loader = YAMLConfigurationLoader.builder().setFlowStyle(DumperOptions.FlowStyle.BLOCK).setIndent(2).setFile(fileOnDisk).build();
-        ConfigurationNode root = loader.load(ConfigurationOptions.defaults().setHeader("Comments are gone because update :(. Click here for new config + comments: https://forums.velocitypowered.com/t/anti-vpn-get-the-best-save-money-on-overpriced-plugins-and-block-vpn-users/207"));
-        Configuration config = new Configuration(root);
-        ConfigurationVersionUtil.conformVersion(loader, config, fileOnDisk);
-
-        return config;
+        YamlConfigurationLoader loader = YamlConfigurationLoader.builder().nodeStyle(NodeStyle.BLOCK).indent(2).file(fileOnDisk).build();
+        ConfigurationNode root = loader.load(ConfigurationOptions.defaults().header("Comments are gone because update :(. Click here for new config + comments: https://forums.velocitypowered.com/t/anti-vpn-get-the-best-save-money-on-overpriced-plugins-and-block-vpn-users/207"));
+        ConfigurationVersionUtil.conformVersion(loader, root, fileOnDisk);
+        return root;
     }
 
     private static Locale getLanguage(String lang) {
@@ -324,23 +317,23 @@ public class ConfigurationFileUtil {
             name = name.toLowerCase();
             switch (name) {
                 case "mysql": {
-                    if (!enginesNode.getNode(name, "enabled").getBoolean()) {
+                    if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
                             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
                         }
                         continue;
                     }
-                    ConfigurationNode connectionNode = enginesNode.getNode(name, "connection");
-                    String options = connectionNode.getNode("options").getString("useSSL=false&useUnicode=true&characterEncoding=utf8");
+                    ConfigurationNode connectionNode = enginesNode.node(name, "connection");
+                    String options = connectionNode.node("options").getString("useSSL=false&useUnicode=true&characterEncoding=utf8");
                     if (options.length() > 0 && options.charAt(0) == '?') {
                         options = options.substring(1);
                     }
-                    AddressPort url = new AddressPort("storage.engines." + name + ".connection.address", connectionNode.getNode("address").getString("127.0.0.1:3306"), 3306);
+                    AddressPort url = new AddressPort("storage.engines." + name + ".connection.address", connectionNode.node("address").getString("127.0.0.1:3306"), 3306);
                     try {
                         retVal.add(
                                 MySQL.builder(handler)
-                                        .url(url.address, url.port, connectionNode.getNode("database").getString("anti_vpn"), connectionNode.getNode("prefix").getString("avpn_"))
-                                        .credentials(connectionNode.getNode("username").getString(""), connectionNode.getNode("password").getString(""))
+                                        .url(url.address, url.port, connectionNode.node("database").getString("anti_vpn"), connectionNode.node("prefix").getString("avpn_"))
+                                        .credentials(connectionNode.node("username").getString(""), connectionNode.node("password").getString(""))
                                         .options(options)
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, settings.timeout)
@@ -352,19 +345,19 @@ public class ConfigurationFileUtil {
                     break;
                 }
                 case "redis": {
-                    if (!enginesNode.getNode(name, "enabled").getBoolean()) {
+                    if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
                             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
                         }
                         continue;
                     }
-                    ConfigurationNode connectionNode = enginesNode.getNode(name, "connection");
-                    AddressPort url = new AddressPort("storage.engines." + name + ".connection.address", connectionNode.getNode("address").getString("127.0.0.1:6379"), 6379);
+                    ConfigurationNode connectionNode = enginesNode.node(name, "connection");
+                    AddressPort url = new AddressPort("storage.engines." + name + ".connection.address", connectionNode.node("address").getString("127.0.0.1:6379"), 6379);
                     try {
                         retVal.add(
                                 me.egg82.antivpn.storage.Redis.builder(handler)
-                                        .url(url.address, url.port, connectionNode.getNode("prefix").getString("avpn_"))
-                                        .credentials(connectionNode.getNode("password").getString(""))
+                                        .url(url.address, url.port, connectionNode.node("prefix").getString("avpn_"))
+                                        .credentials(connectionNode.node("password").getString(""))
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, (int) settings.timeout)
                                         .build()
@@ -375,22 +368,22 @@ public class ConfigurationFileUtil {
                     break;
                 }
                 case "sqlite": {
-                    if (!enginesNode.getNode(name, "enabled").getBoolean()) {
+                    if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
                             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
                         }
                         continue;
                     }
-                    ConfigurationNode connectionNode = enginesNode.getNode(name, "connection");
-                    String options = connectionNode.getNode("options").getString("useUnicode=true&characterEncoding=utf8");
+                    ConfigurationNode connectionNode = enginesNode.node(name, "connection");
+                    String options = connectionNode.node("options").getString("useUnicode=true&characterEncoding=utf8");
                     if (options.length() > 0 && options.charAt(0) == '?') {
                         options = options.substring(1);
                     }
-                    String file = connectionNode.getNode("file").getString("anti_vpn.db");
+                    String file = connectionNode.node("file").getString("anti_vpn.db");
                     try {
                         retVal.add(
                                 SQLite.builder(handler)
-                                        .file(new File(new File(description.getSource().get().getParent().toFile(), description.getName().get()), file), connectionNode.getNode("prefix").getString("avpn_"))
+                                        .file(new File(new File(description.getSource().get().getParent().toFile(), description.getName().get()), file), connectionNode.node("prefix").getString("avpn_"))
                                         .options(options)
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, settings.timeout)
@@ -418,19 +411,19 @@ public class ConfigurationFileUtil {
             name = name.toLowerCase();
             switch (name) {
                 case "rabbitmq": {
-                    if (!enginesNode.getNode(name, "enabled").getBoolean()) {
+                    if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
                             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
                         }
                         continue;
                     }
-                    ConfigurationNode connectionNode = enginesNode.getNode(name, "connection");
-                    AddressPort url = new AddressPort("messaging.engines." + name + ".connection.address", connectionNode.getNode("address").getString("127.0.0.1:5672"), 5672);
+                    ConfigurationNode connectionNode = enginesNode.node(name, "connection");
+                    AddressPort url = new AddressPort("messaging.engines." + name + ".connection.address", connectionNode.node("address").getString("127.0.0.1:5672"), 5672);
                     try {
                         retVal.add(
                                 RabbitMQ.builder(serverID, handler)
-                                        .url(url.address, url.port, connectionNode.getNode("v-host").getString("/"))
-                                        .credentials(connectionNode.getNode("username").getString("guest"), connectionNode.getNode("password").getString("guest"))
+                                        .url(url.address, url.port, connectionNode.node("v-host").getString("/"))
+                                        .credentials(connectionNode.node("username").getString("guest"), connectionNode.node("password").getString("guest"))
                                         .timeout((int) settings.timeout)
                                         .build()
                         );
@@ -440,19 +433,19 @@ public class ConfigurationFileUtil {
                     break;
                 }
                 case "redis": {
-                    if (!enginesNode.getNode(name, "enabled").getBoolean()) {
+                    if (!enginesNode.node(name, "enabled").getBoolean()) {
                         if (debug) {
                             proxy.getConsoleCommandSource().sendMessage(LogUtil.getHeading().append(TextComponent.of(name + " is disabled. Removing.").color(TextColor.DARK_RED)).build());
                         }
                         continue;
                     }
-                    ConfigurationNode connectionNode = enginesNode.getNode(name, "connection");
-                    AddressPort url = new AddressPort("messaging.engines." + name + ".connection.address", connectionNode.getNode("address").getString("127.0.0.1:6379"), 6379);
+                    ConfigurationNode connectionNode = enginesNode.node(name, "connection");
+                    AddressPort url = new AddressPort("messaging.engines." + name + ".connection.address", connectionNode.node("address").getString("127.0.0.1:6379"), 6379);
                     try {
                         retVal.add(
                                 me.egg82.antivpn.messaging.Redis.builder(serverID, handler)
                                         .url(url.address, url.port)
-                                        .credentials(connectionNode.getNode("password").getString(""))
+                                        .credentials(connectionNode.node("password").getString(""))
                                         .poolSize(settings.minPoolSize, settings.maxPoolSize)
                                         .life(settings.maxLifetime, (int) settings.timeout)
                                         .build()
@@ -524,10 +517,10 @@ public class ConfigurationFileUtil {
         private long timeout;
 
         public PoolSettings(ConfigurationNode settingsNode) {
-            minPoolSize = settingsNode.getNode("min-idle").getInt();
-            maxPoolSize = settingsNode.getNode("max-pool-size").getInt();
-            maxLifetime = settingsNode.getNode("max-lifetime").getLong();
-            timeout = settingsNode.getNode("timeout").getLong();
+            minPoolSize = settingsNode.node("min-idle").getInt();
+            maxPoolSize = settingsNode.node("max-pool-size").getInt();
+            maxLifetime = settingsNode.node("max-lifetime").getLong();
+            timeout = settingsNode.node("timeout").getLong();
         }
 
         public int getMinPoolSize() { return minPoolSize; }

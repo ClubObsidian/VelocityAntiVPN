@@ -28,8 +28,8 @@ import net.kyori.text.format.TextColor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;
-import org.spongepowered.configurate.loader.ConfigurationLoader;
-import org.yaml.snakeyaml.DumperOptions;
+import org.spongepowered.configurate.yaml.NodeStyle;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 public class AntiVPN {
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -236,12 +236,12 @@ public class AntiVPN {
     private void loadHooks() {
         PluginManager manager = proxy.getPluginManager();
 
-        if (manager.getPlugin("Plan").isPresent()) {
+        /*if (manager.getPlugin("Plan").isPresent()) {
             consoleCommandIssuer.sendInfo(Message.GENERAL__HOOK_ENABLE, "{plugin}", "Plan");
             ServiceLocator.register(new PlayerAnalyticsHook(proxy));
         } else {
             consoleCommandIssuer.sendInfo(Message.GENERAL__HOOK_DISABLE, "{plugin}", "Plan");
-        }
+        }*/
     }
 
     private void unloadHooks() {
@@ -262,7 +262,11 @@ public class AntiVPN {
     }
 
     public boolean loadYamlLanguageFile(VelocityLocales locales, File file, Locale locale) throws IOException {
-        ConfigurationLoader<ConfigurationNode> fileLoader = YAMLConfigurationLoader.builder().setFlowStyle(DumperOptions.FlowStyle.BLOCK).setIndent(2).setFile(file).build();
+        YamlConfigurationLoader fileLoader = YamlConfigurationLoader.builder()
+                .nodeStyle(NodeStyle.BLOCK)
+                .indent(2)
+                .file(file)
+                .build();
         return loadLanguage(locales, fileLoader.load(), locale);
     }
 

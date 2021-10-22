@@ -10,13 +10,14 @@ import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.loader.ConfigurationLoader;
 import org.spongepowered.configurate.serialize.SerializationException;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 public class ConfigurationVersionUtil {
     private static final Logger logger = LoggerFactory.getLogger(ConfigurationVersionUtil.class);
 
     private ConfigurationVersionUtil() {}
 
-    public static void conformVersion(ConfigurationLoader<ConfigurationNode> loader, ConfigurationNode config, File fileOnDisk) throws IOException {
+    public static void conformVersion(YamlConfigurationLoader loader, ConfigurationNode config, File fileOnDisk) throws IOException {
         double oldVersion = config.node("version").getDouble(1.0d);
         if (config.node("version").getDouble() == 4.12d) {
             to413(config);

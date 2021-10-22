@@ -6,10 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.utils.ValidationUtil;
-import ninja.egg82.json.JSONWebUtil;
-import ninja.leaping.configurate.ConfigurationNode;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class IPHub extends AbstractSourceAPI {
     public String getName() { return "iphub"; }
@@ -26,12 +23,12 @@ public class IPHub extends AbstractSourceAPI {
 
         ConfigurationNode sourceConfigNode = getSourceConfigNode();
 
-        String key = sourceConfigNode.getNode("key").getString();
+        String key = sourceConfigNode.node("key").getString();
         if (key == null || key.isEmpty()) {
             throw new APIException(true, "Key is not defined for " + getName());
         }
 
-        int blockType = sourceConfigNode.getNode("block").getInt(1);
+        int blockType = sourceConfigNode.node("block").getInt(1);
 
         Map<String, String> headers = new HashMap<>();
         headers.put("X-Key", key);

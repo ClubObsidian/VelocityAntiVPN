@@ -2,15 +2,16 @@ package me.egg82.antivpn.utils;
 
 import java.util.Optional;
 import me.egg82.antivpn.extended.CachedConfigValues;
-import me.egg82.antivpn.extended.Configuration;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class ConfigUtil {
-    private static Configuration config = null;
+
+    private static ConfigurationNode config = null;
     private static CachedConfigValues cachedConfig = null;
 
     private ConfigUtil() {}
 
-    public static void setConfiguration(Configuration config, CachedConfigValues cachedConfig) {
+    public static void setConfiguration(ConfigurationNode config, CachedConfigValues cachedConfig) {
         ConfigUtil.config = config;
         ConfigUtil.cachedConfig = cachedConfig;
     }
@@ -19,13 +20,17 @@ public class ConfigUtil {
      * Grabs the config instance from ServiceLocator
      * @return Optional, instance of the Configuration class
      */
-    public static Optional<Configuration> getConfig() { return Optional.ofNullable(config); }
+    public static Optional<ConfigurationNode> getConfig() {
+        return Optional.ofNullable(config);
+    }
 
     /**
      * Grabs the cached config instance from ServiceLocator
      * @return Optional, instance of the CachedConfigValues class
      */
-    public static Optional<CachedConfigValues> getCachedConfig() { return Optional.ofNullable(cachedConfig); }
+    public static Optional<CachedConfigValues> getCachedConfig() {
+        return Optional.ofNullable(cachedConfig);
+    }
 
     public static boolean getDebugOrFalse() {
         Optional<CachedConfigValues> cachedConfig = getCachedConfig();

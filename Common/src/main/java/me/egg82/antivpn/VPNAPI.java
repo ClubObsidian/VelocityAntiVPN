@@ -16,7 +16,6 @@ import me.egg82.antivpn.core.PostMCLeaksResult;
 import me.egg82.antivpn.core.PostVPNResult;
 import me.egg82.antivpn.core.VPNResult;
 import me.egg82.antivpn.extended.CachedConfigValues;
-import me.egg82.antivpn.extended.Configuration;
 import me.egg82.antivpn.messaging.Messaging;
 import me.egg82.antivpn.messaging.MessagingException;
 import me.egg82.antivpn.services.StorageMessagingHandler;

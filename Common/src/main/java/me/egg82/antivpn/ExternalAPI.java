@@ -36,7 +36,9 @@ public class ExternalAPI {
         }
     }
 
-    public static ExternalAPI getInstance() { return api; }
+    public static ExternalAPI getInstance() {
+        return api;
+    }
 
     public static void setInstance(URLClassLoader classLoader) {
         if (api != null) {

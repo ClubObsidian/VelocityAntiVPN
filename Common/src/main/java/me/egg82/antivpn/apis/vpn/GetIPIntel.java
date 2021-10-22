@@ -4,10 +4,9 @@ import java.io.IOException;
 import java.net.URL;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.utils.ValidationUtil;
-import ninja.egg82.json.JSONWebUtil;
-import ninja.leaping.configurate.ConfigurationNode;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class GetIPIntel extends AbstractSourceAPI {
     public String getName() { return "getipintel"; }
@@ -23,7 +22,7 @@ public class GetIPIntel extends AbstractSourceAPI {
         }
 
         ConfigurationNode sourceConfigNode = getSourceConfigNode();
-        if (sourceConfigNode.getNode("contact").getString("admin@yoursite.com").equalsIgnoreCase("admin@yoursite.com")) {
+        if (sourceConfigNode.node("contact").getString("admin@yoursite.com").equalsIgnoreCase("admin@yoursite.com")) {
             throw new APIException(true, "Contact is not defined for " + getName() + " (WARNING: USING AN INVALID E-MAIL FOR THE CONTACT WILL GET YOUR IP BANNED FROM THE SERVICE)");
         }
 

@@ -4,12 +4,9 @@ import java.io.IOException;
 import java.net.URL;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.utils.ValidationUtil;
-import ninja.egg82.json.JSONWebUtil;
-import ninja.leaping.configurate.ConfigurationNode;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class IPQualityScore extends AbstractSourceAPI {
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -28,12 +25,12 @@ public class IPQualityScore extends AbstractSourceAPI {
 
         ConfigurationNode sourceConfigNode = getSourceConfigNode();
 
-        String key = sourceConfigNode.getNode("key").getString();
+        String key = sourceConfigNode.node("key").getString();
         if (key == null || key.isEmpty()) {
             throw new APIException(true, "Key is not defined for " + getName());
         }
 
-        int strictness = sourceConfigNode.getNode("strictness").getInt();
+        int strictness = sourceConfigNode.node("strictness").getInt();
         if (strictness < 0) {
             logger.warn("strictness capped at a min of 0");
             strictness = 0;

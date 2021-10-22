@@ -23,7 +23,6 @@ import me.egg82.antivpn.services.PluginMessageFormatter;
 import me.egg82.antivpn.services.StorageMessagingHandler;
 import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.utils.*;
-import net.kyori.text.format.TextColor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;

@@ -127,22 +127,6 @@ public class ImportCommand implements Runnable {
             start += max;
         } while (vpns.size() == max);
 
-        issuer.sendInfo(Message.IMPORT__MCLEAKS, "{id}", "0");
-        start = 1L;
-        Set<RawMCLeaksResult> mcleaks;
-        do {
-            try {
-                mcleaks = master.dumpMCLeaksValues(start, max);
-                slave.loadMCLeaksValues(mcleaks, start == 1L);
-            } catch (StorageException ex) {
-                logger.error("Could not import MCLeaks values.", ex);
-                issuer.sendError(Message.ERROR__INTERNAL);
-                return;
-            }
-            issuer.sendInfo(Message.IMPORT__MCLEAKS, "{id}", String.valueOf(start + mcleaks.size()));
-            start += max;
-        } while (mcleaks.size() == max);
-
         issuer.sendInfo(Message.IMPORT__END);
     }
 }

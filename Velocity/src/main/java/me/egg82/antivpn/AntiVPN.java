@@ -18,7 +18,6 @@ import me.egg82.antivpn.enums.Message;
 import me.egg82.antivpn.events.EventHolder;
 import me.egg82.antivpn.events.PlayerEvents;
 import me.egg82.antivpn.extended.CachedConfigValues;
-import me.egg82.antivpn.hooks.PlayerAnalyticsHook;
 import me.egg82.antivpn.hooks.PluginHook;
 import me.egg82.antivpn.services.PluginMessageFormatter;
 import me.egg82.antivpn.services.StorageMessagingHandler;

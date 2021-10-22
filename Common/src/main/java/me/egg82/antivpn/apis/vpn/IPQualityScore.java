@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.net.URL;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.utils.ValidationUtil;
+import ninja.egg82.json.JSONWebUtil;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -42,7 +45,7 @@ public class IPQualityScore extends AbstractSourceAPI {
 
         JSONObject json;
         try {
-            json = JSONWebUtil.getJSONObject(new URL("http://www.ipqualityscore.com/api/json/ip/" + key + "/" + ip + "?strictness=" + strictness + "&mobile=" + (sourceConfigNode.getNode("mobile").getBoolean() ? "true" : "false") + "&fast=true&allow_public_access_points=true&lighter_penalties=true"), "GET", (int) getCachedConfig().getTimeout(), "egg82/AntiVPN");
+            json = JSONWebUtil.getJSONObject(new URL("http://www.ipqualityscore.com/api/json/ip/" + key + "/" + ip + "?strictness=" + strictness + "&mobile=" + (sourceConfigNode.node("mobile").getBoolean() ? "true" : "false") + "&fast=true&allow_public_access_points=true&lighter_penalties=true"), "GET", (int) getCachedConfig().getTimeout(), "egg82/AntiVPN");
         } catch (IOException | ParseException | ClassCastException ex) {
             throw new APIException(false, "Could not get result from " + getName());
         }
@@ -54,7 +57,7 @@ public class IPQualityScore extends AbstractSourceAPI {
             throw new APIException(false, "Could not get result from " + getName());
         }
 
-        if (sourceConfigNode.getNode("proxy").getBoolean() && json.get("proxy") != null) {
+        if (sourceConfigNode.node("proxy").getBoolean() && json.get("proxy") != null) {
             if (((Boolean) json.get("proxy"))) {
                 return true;
             }
@@ -70,7 +73,7 @@ public class IPQualityScore extends AbstractSourceAPI {
         if (json.get("bot_status") != null && ((Boolean) json.get("bot_status"))) {
             return true;
         }
-        if (sourceConfigNode.getNode("recent-abuse").getBoolean()) {
+        if (sourceConfigNode.node("recent-abuse").getBoolean()) {
             if (json.get("recent_abuse") != null && ((Boolean) json.get("recent_abuse"))) {
                 return true;
             }
@@ -88,6 +91,6 @@ public class IPQualityScore extends AbstractSourceAPI {
             throw new APIException(false, "Could not get result from " + getName());
         }
 
-        return retVal >= sourceConfigNode.getNode("threshold").getDouble();
+        return retVal >= sourceConfigNode.node("threshold").getDouble();
     }
 }

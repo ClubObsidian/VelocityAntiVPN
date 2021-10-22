@@ -24,7 +24,6 @@ public class Redis implements Storage {
     private JedisPool pool;
 
     private AtomicLong lastVPNID;
-    private AtomicLong lastMCLeaksID;
     private StorageHandler handler;
     protected String prefix = "";
 
@@ -92,7 +91,6 @@ public class Redis implements Storage {
             warmup(result.pool);
             setDefaults();
             result.lastVPNID = new AtomicLong(getLastVPNID());
-            result.lastMCLeaksID = new AtomicLong(getLastMCLeaksID());
             return result;
         }
 
@@ -101,7 +99,6 @@ public class Redis implements Storage {
                 redis.setnx(result.prefix + "ips:idx", "0");
                 redis.setnx(result.prefix + "players:idx", "0");
                 redis.setnx(result.prefix + "vpn_values:idx", "0");
-                redis.setnx(result.prefix + "mcleaks_values:idx", "0");
             }
         }
 
@@ -141,18 +138,6 @@ public class Redis implements Storage {
                 throw new StorageException(false, "Could not get last VPN ID.");
             }
         }
-
-        private long getLastMCLeaksID() throws StorageException {
-            try (Jedis redis = result.pool.getResource()) {
-                long id = Long.parseLong(redis.get(result.prefix + "mcleaks_values:idx"));
-                while (redis.exists(result.prefix + "mcleaks_values:" + (id + 1))) {
-                    id = redis.incr(result.prefix + "mcleaks_values:idx");
-                }
-                return id;
-            } catch (JedisException ex) {
-                throw new StorageException(false, "Could not get last MCLeaks ID.");
-            }
-        }
     }
 
     public Set<VPNResult> getVPNQueue() throws StorageException {
@@ -188,39 +173,6 @@ public class Redis implements Storage {
         }
     }
 
-    public Set<MCLeaksResult> getMCLeaksQueue() throws StorageException {
-        Set<MCLeaksResult> retVal = new LinkedHashSet<>();
-
-        try (Jedis redis = pool.getResource()) {
-            long max = Long.parseLong(redis.get(prefix + "mcleaks_values:idx"));
-            while (redis.exists(prefix + "mcleaks_values:" + (max + 1))) {
-                max = redis.incr(prefix + "mcleaks_values:idx");
-            }
-
-            if (lastMCLeaksID.get() >= max) {
-                lastMCLeaksID.set(max);
-                return retVal;
-            }
-
-            long next;
-            while ((next = lastMCLeaksID.getAndIncrement()) < max) {
-                MCLeaksResult r = null;
-                try {
-                    r = getMCLeaksResult(next, redis.get(prefix + "mcleaks_values:" + next), redis);
-                } catch (StorageException | JedisException | ParseException | ClassCastException ex) {
-                    logger.warn("Could not get MCLeaks data for ID " + next + ".", ex);
-                }
-                if (r != null) {
-                    retVal.add(r);
-                }
-            }
-
-            return retVal;
-        } catch (JedisException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
     public VPNResult getVPNByIP(String ip, long cacheTimeMillis) throws StorageException {
         try (Jedis redis = pool.getResource()) {
             long longIPID = longIPIDCache.get(ip);
@@ -228,21 +180,6 @@ public class Redis implements Storage {
                 return getVPNResultIP(longIPID, redis.get(prefix + "vpn_values:ip:" + longIPID), redis, cacheTimeMillis);
             } catch (StorageException | JedisException | ParseException | ClassCastException ex) {
                 logger.warn("Could not get VPN data for IP " + longIPID + ".", ex);
-            }
-
-            return null;
-        } catch (JedisException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
-    public MCLeaksResult getMCLeaksByPlayer(UUID playerID, long cacheTimeMillis) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            long longPlayerID = longPlayerIDCache.get(playerID);
-            try {
-                return getMCLeaksResultPlayer(longPlayerID, redis.get(prefix + "mcleaks_values:player:" + longPlayerID), redis, cacheTimeMillis);
-            } catch (StorageException | JedisException | ParseException | ClassCastException ex) {
-                logger.warn("Could not get MCLeaks data for player " + longPlayerID + ".", ex);
             }
 
             return null;
@@ -280,40 +217,6 @@ public class Redis implements Storage {
                     ip,
                     cascade,
                     consensus,
-                    created
-            );
-        } catch (JedisException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
-    public PostMCLeaksResult postMCLeaks(UUID playerID, boolean value) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            long longPlayerID = longPlayerIDCache.get(playerID);
-
-            JSONObject obj = new JSONObject();
-            obj.put("playerID", longPlayerID);
-            obj.put("result", value);
-
-            long id;
-            long created;
-            do {
-                do {
-                    id = redis.incr(prefix + "mcleaks_values:idx");
-                } while (redis.exists(prefix + "mcleaks_values:" + id));
-                created = getTime(redis.time());
-                obj.put("created", created);
-            } while (redis.setnx(prefix + "mcleaks_values:" + id, obj.toJSONString()) == 0L);
-
-            obj.remove("playerID");
-            obj.put("id", id);
-            redis.rpush(prefix + "mcleaks_values:player:" + longPlayerID, obj.toJSONString());
-
-            return new PostMCLeaksResult(
-                    id,
-                    longPlayerID,
-                    playerID,
-                    value,
                     created
             );
         } catch (JedisException ex) {
@@ -370,23 +273,6 @@ public class Redis implements Storage {
             obj.remove("ipID");
             obj.put("id", id);
             redis.rpush(prefix + "vpn_values:ip:" + longIPID, obj.toJSONString());
-        } catch (JedisException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
-    public void postMCLeaksRaw(long id, long longPlayerID, boolean value, long created) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            JSONObject obj = new JSONObject();
-            obj.put("playerID", longPlayerID);
-            obj.put("result", value);
-            obj.put("created", created);
-
-            redis.set(prefix + "mcleaks_values:" + id, obj.toJSONString());
-
-            obj.remove("playerID");
-            obj.put("id", id);
-            redis.rpush(prefix + "mcleaks_values:player:" + longPlayerID, obj.toJSONString());
         } catch (JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
@@ -583,63 +469,6 @@ public class Redis implements Storage {
         }
     }
 
-    public Set<RawMCLeaksResult> dumpMCLeaksValues(long begin, int size) throws StorageException {
-        Set<RawMCLeaksResult> retVal = new LinkedHashSet<>();
-
-        try (Jedis redis = pool.getResource()) {
-            for (long i = begin; i < begin + size; i++) {
-                RawMCLeaksResult r = null;
-                try {
-                    String json = redis.get(prefix + "mcleaks_values:" + i);
-                    if (json == null) {
-                        continue;
-                    }
-                    JSONObject obj = JSONUtil.parseObject(json);
-                    r = new RawMCLeaksResult(
-                            i,
-                            ((Number) obj.get("playerID")).longValue(),
-                            (Boolean) obj.get("result"),
-                            ((Number) obj.get("created")).longValue()
-                    );
-                } catch (ParseException | ClassCastException ex) {
-                    logger.warn("Could not get MCLeaks data for ID " + i + ".", ex);
-                }
-                if (r != null) {
-                    retVal.add(r);
-                }
-            }
-
-            return retVal;
-        } catch (JedisException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
-    public void loadMCLeaksValues(Set<RawMCLeaksResult> values, boolean truncate) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            if (truncate) {
-                deleteNamespace(redis, prefix + "mcleaks_values:");
-            }
-            long max = 0;
-            for (RawMCLeaksResult r : values) {
-                max = Math.max(max, r.getID());
-                JSONObject obj = new JSONObject();
-                obj.put("playerID", r.getLongPlayerID());
-                obj.put("result", r.getValue());
-                obj.put("created", r.getCreated());
-
-                redis.set(prefix + "mcleaks_values:" + r.getID(), obj.toJSONString());
-
-                obj.remove("playerID");
-                obj.put("id", r.getID());
-                redis.rpush(prefix + "mcleaks_values:player:" + r.getLongPlayerID(), obj.toJSONString());
-            }
-            redis.set(prefix + "mcleaks_values:idx", String.valueOf(max));
-        } catch (JedisException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
     private VPNResult getVPNResult(long id, String json, Jedis redis) throws StorageException, JedisException, ParseException, ClassCastException {
         if (json == null) {
             return null;
@@ -702,68 +531,6 @@ public class Redis implements Storage {
                 ip,
                 cascade,
                 consensus,
-                created
-        );
-    }
-
-    private MCLeaksResult getMCLeaksResult(long id, String json, Jedis redis) throws StorageException, JedisException, ParseException, ClassCastException {
-        if (json == null) {
-            return null;
-        }
-
-        JSONObject obj = JSONUtil.parseObject(json);
-        long longPlayerID = ((Number) obj.get("playerID")).longValue();
-        boolean value = (Boolean) obj.get("result");
-        long created = ((Number) obj.get("created")).longValue();
-
-        String playerJSON = redis.get(prefix + "players:" + longPlayerID);
-        if (playerJSON == null) {
-            throw new StorageException(false, "Could not get player data for ID " + longPlayerID + ".");
-        }
-        JSONObject playerObj = JSONUtil.parseObject(playerJSON);
-        String pid = (String) playerObj.get("id");
-        if (!ValidationUtil.isValidUuid(pid)) {
-            redis.del(prefix + "players:" + longPlayerID);
-            throw new StorageException(false, "Player ID " + longPlayerID + " has an invalid UUID \"" + pid + "\".");
-        }
-
-        return new MCLeaksResult(
-                id,
-                UUID.fromString(pid),
-                value,
-                created
-        );
-    }
-
-    private MCLeaksResult getMCLeaksResultPlayer(long longPlayerID, String json, Jedis redis, long cacheTimeMillis) throws StorageException, JedisException, ParseException, ClassCastException {
-        if (json == null) {
-            return null;
-        }
-
-        JSONObject obj = JSONUtil.parseObject(json);
-        long id = ((Number) obj.get("id")).longValue();
-        boolean value = (Boolean) obj.get("result");
-        long created = ((Number) obj.get("created")).longValue();
-
-        if (created < getTime(redis.time()) - cacheTimeMillis) {
-            return null;
-        }
-
-        String playerJSON = redis.get(prefix + "players:" + longPlayerID);
-        if (playerJSON == null) {
-            throw new StorageException(false, "Could not get player data for ID " + longPlayerID + ".");
-        }
-        JSONObject playerObj = JSONUtil.parseObject(playerJSON);
-        String pid = (String) playerObj.get("id");
-        if (!ValidationUtil.isValidUuid(pid)) {
-            redis.del(prefix + "players:" + longPlayerID);
-            throw new StorageException(false, "Player ID " + longPlayerID + " has an invalid UUID \"" + pid + "\".");
-        }
-
-        return new MCLeaksResult(
-                id,
-                UUID.fromString(pid),
-                value,
                 created
         );
     }
@@ -870,7 +637,7 @@ public class Redis implements Storage {
     private boolean isAutomaticallyRecoverable(JedisException ex) {
         if (
                 ex.getMessage().startsWith("Failed connecting")
-                || ex.getMessage().contains("broken connection")
+                        || ex.getMessage().contains("broken connection")
         ) {
             return true;
         }

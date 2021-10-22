@@ -15,14 +15,9 @@ public interface Storage {
     default PostVPNResult postVPN(String ip, double consensus) throws StorageException { return postVPN(ip, Optional.empty(), Optional.of(consensus)); }
     PostVPNResult postVPN(String ip, Optional<Boolean> cascade, Optional<Double> consensus) throws StorageException;
 
-    Set<MCLeaksResult> getMCLeaksQueue() throws StorageException;
-    MCLeaksResult getMCLeaksByPlayer(UUID playerID, long cacheTimeMillis) throws StorageException;
-    PostMCLeaksResult postMCLeaks(UUID playerID, boolean value) throws StorageException;
-
     void setIPRaw(long longIPID, String ip) throws StorageException;
     void setPlayerRaw(long longPlayerID, UUID playerID) throws StorageException;
     void postVPNRaw(long id, long longIPID, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws StorageException;
-    void postMCLeaksRaw(long id, long longPlayerID, boolean value, long created) throws StorageException;
 
     long getLongPlayerID(UUID playerID);
     long getLongIPID(String ip);
@@ -36,6 +31,4 @@ public interface Storage {
     Set<RawVPNResult> dumpVPNValues(long begin, int size) throws StorageException;
     void loadVPNValues(Set<RawVPNResult> values, boolean truncate) throws StorageException;
 
-    Set<RawMCLeaksResult> dumpMCLeaksValues(long begin, int size) throws StorageException;
-    void loadMCLeaksValues(Set<RawMCLeaksResult> values, boolean truncate) throws StorageException;
 }

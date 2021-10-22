@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URL;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.utils.ValidationUtil;
+import ninja.egg82.json.JSONWebUtil;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -28,7 +29,7 @@ public class GetIPIntel extends AbstractSourceAPI {
 
         JSONObject json;
         try {
-            json = JSONWebUtil.getJSONObject(new URL("https://check.getipintel.net/check.php?ip=" + ip + "&contact=" + sourceConfigNode.getNode("contact").getString("admin@yoursite.com") + "&format=json&flags=b"), "GET", (int) getCachedConfig().getTimeout(), "egg82/AntiVPN");
+            json = JSONWebUtil.getJSONObject(new URL("https://check.getipintel.net/check.php?ip=" + ip + "&contact=" + sourceConfigNode.node("contact").getString("admin@yoursite.com") + "&format=json&flags=b"), "GET", (int) getCachedConfig().getTimeout(), "egg82/AntiVPN");
         } catch (IOException | ParseException | ClassCastException ex) {
             throw new APIException(false, "Could not get result from " + getName() + " (Is your server's IP banned due to an improper contact e-mail in the config? Send an e-mail to contact@getipintel.net for an unban)", ex);
         }
@@ -41,6 +42,6 @@ public class GetIPIntel extends AbstractSourceAPI {
             throw new APIException(false, "Could not get result from " + getName());
         }
 
-        return retVal >= sourceConfigNode.getNode("threshold").getDouble();
+        return retVal >= sourceConfigNode.node("threshold").getDouble();
     }
 }

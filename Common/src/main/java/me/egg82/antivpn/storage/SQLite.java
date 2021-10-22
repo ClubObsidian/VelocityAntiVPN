@@ -26,7 +26,6 @@ public class SQLite extends AbstractSQL {
     private final LoadingCache<UUID, Long> longPlayerIDCache = Caffeine.newBuilder().build(this::getLongPlayerIDExpensive);
 
     private volatile long lastVPNID;
-    private volatile long lastMCLeaksID;
     private StorageHandler handler;
 
     private SQLite() { }
@@ -93,7 +92,6 @@ public class SQLite extends AbstractSQL {
             result.sql = new SQL(config);
             SQLVersionUtil.conformVersion(result, "sqlite");
             result.lastVPNID = getLastVPNID();
-            result.lastMCLeaksID = getLastMCLeaksID();
             return result;
         }
 
@@ -106,19 +104,6 @@ public class SQLite extends AbstractSQL {
             }
             if (r.getData().length != 1) {
                 throw new StorageException(false, "Could not get VPN IDs.");
-            }
-            return r.getData()[0][0] != null ? ((Number) r.getData()[0][0]).longValue() : 0;
-        }
-
-        private long getLastMCLeaksID() throws StorageException {
-            SQLQueryResult r;
-            try {
-                r = result.sql.query("SELECT MAX(`id`) FROM `" + result.prefix + "mcleaks_values`;");
-            } catch (SQLException ex) {
-                throw new StorageException(false, ex);
-            }
-            if (r.getData().length != 1) {
-                throw new StorageException(false, "Could not get MCLeaks IDs.");
             }
             return r.getData()[0][0] != null ? ((Number) r.getData()[0][0]).longValue() : 0;
         }
@@ -152,33 +137,6 @@ public class SQLite extends AbstractSQL {
         return retVal;
     }
 
-    public Set<MCLeaksResult> getMCLeaksQueue() throws StorageException {
-        Set<MCLeaksResult> retVal = new LinkedHashSet<>();
-        SQLQueryResult result;
-        try {
-            result = sql.query(
-                    "SELECT" +
-                        "  `v`.`id`," +
-                        "  `p`.`uuid` AS `player_id`," +
-                        "  `v`.`result`," +
-                        "  `v`.`created`" +
-                        "FROM `" + prefix + "mcleaks_values` `v`" +
-                        "JOIN `" + prefix + "players` `p` ON `p`.`id` = `v`.`player_id`" +
-                        "WHERE `v`.`id` > ?;",
-                    lastMCLeaksID);
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-        for (Object[] row : result.getData()) {
-            MCLeaksResult r = getMCLeaksResult(row);
-            if (r != null) {
-                lastMCLeaksID = r.getID();
-                retVal.add(r);
-            }
-        }
-        return retVal;
-    }
-
     public VPNResult getVPNByIP(String ip, long cacheTimeMillis) throws StorageException {
         if (ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
@@ -206,33 +164,6 @@ public class SQLite extends AbstractSQL {
         }
         if (result.getData().length == 1) {
             return getVPNResult(result.getData()[0]);
-        }
-        return null;
-    }
-
-    public MCLeaksResult getMCLeaksByPlayer(UUID playerID, long cacheTimeMillis) throws StorageException {
-        if (playerID == null) {
-            throw new IllegalArgumentException("playerID cannot be null.");
-        }
-
-        long longPlayerID = longPlayerIDCache.get(playerID);
-        SQLQueryResult result;
-        try {
-            result = sql.query(
-                    "SELECT" +
-                        "  `v`.`id`," +
-                        "  `p`.`uuid` AS `player_id`," +
-                        "  `v`.`result`," +
-                        "  `v`.`created`" +
-                        "FROM `" + prefix + "mcleaks_values` `v`" +
-                        "JOIN `" + prefix + "players` `p` ON `p`.`id` = `v`.`player_id`" +
-                        "WHERE `v`.`created` >= DATETIME(CURRENT_TIMESTAMP, ?) AND `v`.`player_id` = ?;",
-                    "-" + (cacheTimeMillis / 1000L) + " seconds", longPlayerID);
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-        if (result.getData().length == 1) {
-            return getMCLeaksResult(result.getData()[0]);
         }
         return null;
     }
@@ -278,37 +209,6 @@ public class SQLite extends AbstractSQL {
         );
     }
 
-    public PostMCLeaksResult postMCLeaks(UUID playerID, boolean value) throws StorageException {
-        if (playerID == null) {
-            throw new IllegalArgumentException("playerID cannot be null.");
-        }
-
-        long longPlayerID = longPlayerIDCache.get(playerID);
-        try {
-            sql.execute("INSERT INTO `" + prefix + "mcleaks_values` (`player_id`, `result`) VALUES (?, ?) ON CONFLICT(`player_id`) DO UPDATE SET `result`=?, `created`=CURRENT_TIMESTAMP;", longPlayerID, value, value);
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-
-        SQLQueryResult query;
-        try {
-            query = sql.query("SELECT `id`, `created` FROM `" + prefix + "mcleaks_values` WHERE `player_id`=?;", longPlayerID);
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-        if (query.getData().length != 1) {
-            throw new StorageException(false, "Could not get data from inserted value.");
-        }
-
-        return new PostMCLeaksResult(
-                ((Number) query.getData()[0][0]).longValue(),
-                longPlayerID,
-                playerID,
-                value,
-                getTime(query.getData()[0][1]).getTime()
-        );
-    }
-
     public void setIPRaw(long longIPID, String ip) throws StorageException {
         try {
             sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?) ON CONFLICT(`id`) DO UPDATE SET `ip`=?;", longIPID, ip, ip);
@@ -330,14 +230,6 @@ public class SQLite extends AbstractSQL {
     public void postVPNRaw(long id, long longIPID, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws StorageException {
         try {
             sql.execute("INSERT OR IGNORE INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", id, longIPID, cascade.orElse(null), consensus.orElse(null), new Timestamp(created));
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
-    public void postMCLeaksRaw(long id, long longPlayerID, boolean value, long created) throws StorageException {
-        try {
-            sql.execute("INSERT OR IGNORE INTO `" + prefix + "mcleaks_values` (`id`, `player_id`, `result`, `created`) VALUES (?, ?, ?, ?);", id, longPlayerID, value, new Timestamp(created));
         } catch (SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
@@ -493,47 +385,6 @@ public class SQLite extends AbstractSQL {
         }
     }
 
-    public Set<RawMCLeaksResult> dumpMCLeaksValues(long begin, int size) throws StorageException {
-        Set<RawMCLeaksResult> retVal = new LinkedHashSet<>();
-
-        SQLQueryResult result;
-        try {
-            result = sql.query("SELECT `id`, `player_id`, `result`, `created` FROM `" + prefix + "mcleaks_values` LIMIT ?, ?;", begin - 1, size);
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-
-        for (Object[] row : result.getData()) {
-            retVal.add(new RawMCLeaksResult(
-                    ((Number) row[0]).longValue(),
-                    ((Number) row[1]).longValue(),
-                    ((Number) row[2]).intValue() == 1,
-                    getTime(row[3]).getTime()
-            ));
-        }
-
-        return retVal;
-    }
-
-    public void loadMCLeaksValues(Set<RawMCLeaksResult> values, boolean truncate) throws StorageException {
-        // TODO: Batch execute
-        try {
-            if (truncate) {
-                sql.execute("PRAGMA foreign_keys = OFF;");
-                sql.execute("DELETE FROM `" + prefix + "mcleaks_values`;");
-                sql.execute("VACUUM;");
-            }
-            for (RawMCLeaksResult value : values) {
-                sql.execute("INSERT INTO `" + prefix + "mcleaks_values` (`id`, `player_id`, `result`, `created`) VALUES (?, ?, ?, ?);", value.getID(), value.getLongPlayerID(), value.getValue(), new Timestamp(value.getCreated()));
-            }
-            if (truncate) {
-                sql.execute("PRAGMA foreign_keys = ON;");
-            }
-        } catch (SQLException ex) {
-            throw new StorageException(isAutomaticallyRecoverable(ex), ex);
-        }
-    }
-
     private VPNResult getVPNResult(Object[] row) {
         String ip = (String) row[1];
         if (!ValidationUtil.isValidIp(ip)) {
@@ -547,21 +398,6 @@ public class SQLite extends AbstractSQL {
                 row[2] == null ? Optional.empty() : Optional.of(((Number) row[2]).intValue() == 1),
                 row[3] == null ? Optional.empty() : Optional.of(((Number) row[3]).doubleValue()),
                 getTime(row[4]).getTime()
-        );
-    }
-
-    private MCLeaksResult getMCLeaksResult(Object[] row) {
-        String playerID = (String) row[1];
-        if (!ValidationUtil.isValidUuid(playerID)) {
-            logger.warn("MCLeaks ID " + row[0] + " has an invalid UUID \"" + row[1] + "\".");
-            return null;
-        }
-
-        return new MCLeaksResult(
-                ((Number) row[0]).longValue(),
-                UUID.fromString(playerID),
-                ((Number) row[2]).intValue() == 1,
-                getTime(row[3]).getTime()
         );
     }
 

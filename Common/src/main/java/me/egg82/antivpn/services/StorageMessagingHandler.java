@@ -26,7 +26,6 @@ public class StorageMessagingHandler implements StorageHandler, MessagingHandler
 
     private final LoadingCache<UUID, Boolean> cachedMessages = Caffeine.newBuilder().expireAfterAccess(5L, TimeUnit.MINUTES).expireAfterWrite(10L, TimeUnit.MINUTES).build(k -> Boolean.FALSE);
     private final LoadingCache<Long, Boolean> cachedVPNPosts = Caffeine.newBuilder().expireAfterAccess(2L, TimeUnit.MINUTES).expireAfterWrite(5L, TimeUnit.MINUTES).build(k -> Boolean.FALSE);
-    private final LoadingCache<Long, Boolean> cachedMCLeaksPosts = Caffeine.newBuilder().expireAfterAccess(2L, TimeUnit.MINUTES).expireAfterWrite(5L, TimeUnit.MINUTES).build(k -> Boolean.FALSE);
 
     private final ExecutorService workPool = Executors.newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("AntiVPN-SMH-%d").build());
 
@@ -39,8 +38,6 @@ public class StorageMessagingHandler implements StorageHandler, MessagingHandler
     public void cacheMessage(UUID uuid) { cachedMessages.put(uuid, Boolean.TRUE); }
 
     public void cacheVPNPost(long id) { cachedVPNPosts.put(id, Boolean.TRUE); }
-
-    public void cacheMCLeaksPost(long id) { cachedMCLeaksPosts.put(id, Boolean.TRUE); }
 
     public long numReceivedMessages() { return receivedMessages.get(); }
 
@@ -87,26 +84,6 @@ public class StorageMessagingHandler implements StorageHandler, MessagingHandler
                 continue;
             }
             cachedVPNPosts.put(r.getID(), Boolean.TRUE);
-            receivedMessages.getAndIncrement();
-        }
-
-        Set<MCLeaksResult> mcleaksQueue = new LinkedHashSet<>();
-
-        for (Storage storage : cachedConfig.get().getStorage()) {
-            try {
-                mcleaksQueue.addAll(storage.getMCLeaksQueue());
-            } catch (StorageException ex) {
-                logger.error("Could not get MCLeaks queue from " + storage.getClass().getSimpleName() + ".", ex);
-            }
-        }
-
-        for (Iterator<MCLeaksResult> i = mcleaksQueue.iterator(); i.hasNext();) {
-            MCLeaksResult r = i.next();
-            if (cachedMCLeaksPosts.get(r.getID())) {
-                i.remove();
-                continue;
-            }
-            cachedMCLeaksPosts.put(r.getID(), Boolean.TRUE);
             receivedMessages.getAndIncrement();
         }
 
@@ -292,42 +269,6 @@ public class StorageMessagingHandler implements StorageHandler, MessagingHandler
                     messaging.sendPostVPN(messageID, id, longIPID, ip, cascade, consensus, created);
                 } catch (MessagingException ex) {
                     logger.error("Could not send raw VPN data for " + messaging.getClass().getSimpleName() + ".", ex);
-                }
-            }
-        }
-    }
-
-    public void postMCLeaksCallback(UUID messageID, long id, long longPlayerID, UUID playerID, boolean value, long created, Messaging callingMessaging) {
-        if (cachedMessages.get(messageID)) {
-            return;
-        }
-        cachedMessages.put(messageID, Boolean.TRUE);
-
-        if (ConfigUtil.getDebugOrFalse()) {
-            logger.info("MCLeaks created: " + id + " = " + playerID.toString() + " - \"" + value + "\"");
-            logger.info("Propagating to storage & messaging");
-        }
-
-        Optional<CachedConfigValues> cachedConfig = ConfigUtil.getCachedConfig();
-        if (!cachedConfig.isPresent()) {
-            logger.error("Cached config could not be fetched.");
-            return;
-        }
-
-        for (Storage storage : cachedConfig.get().getStorage()) {
-            try {
-                storage.postMCLeaksRaw(id, longPlayerID, value, created);
-            } catch (StorageException ex) {
-                logger.error("Could not set raw MCLeaks data for " + storage.getClass().getSimpleName() + ".", ex);
-            }
-        }
-
-        for (Messaging messaging : cachedConfig.get().getMessaging()) {
-            if (messaging != callingMessaging) {
-                try {
-                    messaging.sendPostMCLeaks(messageID, id, longPlayerID, playerID, value, created);
-                } catch (MessagingException ex) {
-                    logger.error("Could not send raw MCLeaks data for " + messaging.getClass().getSimpleName() + ".", ex);
                 }
             }
         }

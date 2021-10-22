@@ -11,6 +11,7 @@ dependencies {
     api 'com.zaxxer:HikariCP:4.0.3'
     api 'org.slf4j:slf4j-api:1.7.30'
     api 'org.spongepowered:configurate-yaml:4.1.2'
+    api 'com.github.egg82:JSONWeb:e4a7e70b45'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     compileOnly 'org.xerial:sqlite-jdbc:3.36.0.3'
     compileOnly 'mysql:mysql-connector-java:8.0.27'

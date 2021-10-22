@@ -73,9 +73,13 @@ public class VelocityPlayerInfo implements PlayerInfo {
         this.uuid = uuid.orElse(null);
     }
 
-    public UUID getUUID() { return uuid; }
+    public UUID getUUID() {
+        return uuid;
+    }
 
-    public String getName() { return name; }
+    public String getName() {
+        return name;
+    }
 
     private static String nameExpensive(UUID uuid, ProxyServer proxy) throws IOException {
         // Currently-online lookup

@@ -20,19 +20,15 @@ import me.egg82.antivpn.events.PlayerEvents;
 import me.egg82.antivpn.extended.CachedConfigValues;
 import me.egg82.antivpn.hooks.PlayerAnalyticsHook;
 import me.egg82.antivpn.hooks.PluginHook;
-import me.egg82.antivpn.services.GameAnalyticsErrorHandler;
 import me.egg82.antivpn.services.PluginMessageFormatter;
 import me.egg82.antivpn.services.StorageMessagingHandler;
 import me.egg82.antivpn.storage.Storage;
 import me.egg82.antivpn.utils.*;
 import net.kyori.text.format.TextColor;
-import ninja.egg82.events.VelocityEventSubscriber;
-import ninja.egg82.service.ServiceLocator;
-import ninja.leaping.configurate.ConfigurationNode;
-import ninja.leaping.configurate.loader.ConfigurationLoader;
-import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.loader.ConfigurationLoader;
 import org.yaml.snakeyaml.DumperOptions;
 
 public class AntiVPN {
@@ -69,12 +65,10 @@ public class AntiVPN {
     public void onLoad() { }
 
     public void onEnable() {
-        GameAnalyticsErrorHandler.open(ServerIDUtil.getID(new File(new File(description.getSource().get().getParent().toFile(), description.getName().get()), "stats-id.txt")), description.getVersion().get(), proxy.getVersion().getVersion());
+        this.commandManager = new VelocityCommandManager(this.proxy, this.plugin);
+        this.commandManager.enableUnstableAPI("help");
 
-        commandManager = new VelocityCommandManager(proxy, plugin);
-        commandManager.enableUnstableAPI("help");
-
-        consoleCommandIssuer = commandManager.getCommandIssuer(proxy.getConsoleCommandSource());
+        this.consoleCommandIssuer = this.commandManager.getCommandIssuer(this.proxy.getConsoleCommandSource());
 
         loadServices();
         loadLanguages();
@@ -88,38 +82,36 @@ public class AntiVPN {
             numEvents += eventHolder.numEvents();
         }
 
-        consoleCommandIssuer.sendInfo(Message.GENERAL__ENABLED);
-        consoleCommandIssuer.sendInfo(Message.GENERAL__LOAD,
-                "{version}", description.getVersion().get(),
-                "{commands}", String.valueOf(commandManager.getRegisteredRootCommands().size()),
+        this.consoleCommandIssuer.sendInfo(Message.GENERAL__ENABLED);
+        this.consoleCommandIssuer.sendInfo(Message.GENERAL__LOAD,
+                "{version}", this.description.getVersion().get(),
+                "{commands}", String.valueOf(this.commandManager.getRegisteredRootCommands().size()),
                 "{events}", String.valueOf(numEvents),
-                "{tasks}", String.valueOf(tasks.size())
+                "{tasks}", String.valueOf(this.tasks.size())
         );
     }
 
     public void onDisable() {
-        commandManager.unregisterCommands();
+        this.commandManager.unregisterCommands();
 
-        for (ScheduledTask task : tasks) {
+        for (ScheduledTask task : this.tasks) {
             task.cancel();
         }
-        tasks.clear();
+        this.tasks.clear();
 
         for (EventHolder eventHolder : eventHolders) {
             eventHolder.cancel();
         }
-        eventHolders.clear();
+        this.eventHolders.clear();
         for (VelocityEventSubscriber<?> event : events) {
             event.cancel();
         }
         events.clear();
 
-        unloadHooks();
-        unloadServices();
+        this.unloadHooks();
+        this.unloadServices();
 
-        consoleCommandIssuer.sendInfo(Message.GENERAL__DISABLED);
-
-        GameAnalyticsErrorHandler.close();
+        this.consoleCommandIssuer.sendInfo(Message.GENERAL__DISABLED);
     }
 
     private void loadLanguages() {
@@ -146,10 +138,10 @@ public class AntiVPN {
         locales.setDefaultLocale(cachedConfig.get().getLanguage());
         commandManager.usePerIssuerLocale(true);
 
-        commandManager.setFormat(MessageType.ERROR, new PluginMessageFormatter(commandManager, Message.GENERAL__HEADER));
-        commandManager.setFormat(MessageType.INFO, new PluginMessageFormatter(commandManager, Message.GENERAL__HEADER));
-        commandManager.setFormat(MessageType.ERROR, TextColor.DARK_RED, TextColor.YELLOW, TextColor.AQUA, TextColor.WHITE);
-        commandManager.setFormat(MessageType.INFO, TextColor.WHITE, TextColor.YELLOW, TextColor.AQUA, TextColor.GREEN, TextColor.RED, TextColor.GOLD, TextColor.BLUE, TextColor.GRAY);
+        this.commandManager.setFormat(MessageType.ERROR, new PluginMessageFormatter(commandManager, Message.GENERAL__HEADER));
+        this.commandManager.setFormat(MessageType.INFO, new PluginMessageFormatter(commandManager, Message.GENERAL__HEADER));
+        this.commandManager.setFormat(MessageType.ERROR, TextColor.DARK_RED, TextColor.YELLOW, TextColor.AQUA, TextColor.WHITE);
+        this.commandManager.setFormat(MessageType.INFO, TextColor.WHITE, TextColor.YELLOW, TextColor.AQUA, TextColor.GREEN, TextColor.RED, TextColor.GOLD, TextColor.BLUE, TextColor.GRAY);
     }
 
     private void loadServices() {
@@ -159,13 +151,13 @@ public class AntiVPN {
     }
 
     private void loadCommands() {
-        commandManager.getCommandConditions().addCondition(String.class, "ip", (c, exec, value) -> {
+        this.commandManager.getCommandConditions().addCondition(String.class, "ip", (c, exec, value) -> {
             if (!ValidationUtil.isValidIp(value)) {
                 throw new ConditionFailedException("Value must be a valid IP address.");
             }
         });
 
-        commandManager.getCommandConditions().addCondition(String.class, "source", (c, exec, value) -> {
+        this.commandManager.getCommandConditions().addCondition(String.class, "source", (c, exec, value) -> {
             Optional<CachedConfigValues> cachedConfig = ConfigUtil.getCachedConfig();
             if (!cachedConfig.isPresent()) {
                 return;
@@ -178,7 +170,7 @@ public class AntiVPN {
             throw new ConditionFailedException("Value must be a valid source name.");
         });
 
-        commandManager.getCommandConditions().addCondition(String.class, "storage", (c, exec, value) -> {
+        this.commandManager.getCommandConditions().addCondition(String.class, "storage", (c, exec, value) -> {
             String v = value.replace(" ", "_");
             Optional<CachedConfigValues> cachedConfig = ConfigUtil.getCachedConfig();
             if (!cachedConfig.isPresent()) {
@@ -276,8 +268,8 @@ public class AntiVPN {
 
     private boolean loadLanguage(VelocityLocales locales, ConfigurationNode config, Locale locale) {
         boolean loaded = false;
-        for (Map.Entry<Object, ? extends ConfigurationNode> kvp : config.getChildrenMap().entrySet()) {
-            for (Map.Entry<Object, ? extends ConfigurationNode> kvp2 : kvp.getValue().getChildrenMap().entrySet()) {
+        for (Map.Entry<Object, ? extends ConfigurationNode> kvp : config.childrenMap().entrySet()) {
+            for (Map.Entry<Object, ? extends ConfigurationNode> kvp2 : kvp.getValue().childrenMap().entrySet()) {
                 String value = kvp2.getValue().getString();
                 if (value != null && !value.isEmpty()) {
                     locales.addMessage(locale, MessageKey.of(kvp.getKey() + "." + kvp2.getKey()), value);

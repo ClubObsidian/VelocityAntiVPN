@@ -1,62 +1,102 @@
-# Eclipse
-.classpath
-.project
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+
+.gradle
+/build/
+
+# Ignore Gradle GUI config
+gradle-app.setting
+
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+
+# Cache of project
+.gradletasknamecache
+
+# # Work around https://youtrack.jetbrains.com/issue/IDEA-116898
+# gradle/wrapper/gradle-wrapper.properties
+
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
 .settings/
+.loadpath
+.recommenders
 
-# Netbeans
-nbproject/
-nbactions.xml
+# Eclipse
+.project
+.classpath
 
-# IntelliJ
+# Idea
+.idea/
 *.iml
 *.ipr
 *.iws
-.idea/
-out/
 
-# Vim
-.*.sw[a-p]
+# External tool builders
+.externalToolBuilders/
 
-# Linux
-*~
+# Locally stored "Eclipse launch configurations"
+*.launch
 
-# Maven
-build.xml
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
+# PyDev specific (Python IDE for Eclipse)
+*.pydevproject
 
-# Build artifacts
-build/
-bin/
-dist/
-manifest.mf
+# CDT-specific (C/C++ Development Tooling)
+.cproject
 
-# Mac
-.DS_Store/
-.DS_Store
+# CDT- autotools
+.autotools
 
-# CMake
-cmake-build-*/
+# Java annotation processor (APT)
+.factorypath
 
-# File-based project format
-*.iws
+# PDT-specific (PHP Development Tools)
+.buildpath
 
-# mpeltonen/sbt-idea plugin
-.idea_modules/
+# sbteclipse plugin
+.target
 
-# JIRA plugin
-atlassian-ide-plugin.xml
+# Tern plugin
+.tern-project
 
-# Crashlytics plugin (for Android Studio and IntelliJ)
-com_crashlytics_export_strings.xml
-crashlytics.properties
-crashlytics-build.properties
-fabric.properties
+# TeXlipse plugin
+.texlipse
+
+# STS (Spring Tool Suite)
+.springBeans
+
+# Code Recommenders
+.recommenders/
+
+# Annotation Processing
+.apt_generated/
+
+# Scala IDE specific (Scala & Java development for Eclipse)
+.cache-main
+.scala_dependencies
+.worksheet

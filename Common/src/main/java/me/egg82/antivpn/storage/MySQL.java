@@ -4,12 +4,11 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.mysql.cj.exceptions.MysqlErrorNumbers;
 import com.zaxxer.hikari.HikariConfig;
-import java.io.IOException;
-import java.io.StringReader;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.*;
-import me.egg82.antivpn.core.*;
+import me.egg82.antivpn.core.IPResult;
+import me.egg82.antivpn.core.PlayerResult;
+import me.egg82.antivpn.core.PostVPNResult;
+import me.egg82.antivpn.core.RawVPNResult;
+import me.egg82.antivpn.core.VPNResult;
 import me.egg82.antivpn.services.StorageHandler;
 import me.egg82.antivpn.utils.ValidationUtil;
 import ninja.egg82.core.SQLExecuteResult;
@@ -17,6 +16,16 @@ import ninja.egg82.core.SQLQueryResult;
 import ninja.egg82.sql.SQL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.LinkedHashSet;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
 
 public class MySQL extends AbstractSQL {
     private final Logger logger = LoggerFactory.getLogger(getClass());

@@ -3,13 +3,11 @@ package me.egg82.antivpn.storage;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.zaxxer.hikari.HikariConfig;
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.*;
-import me.egg82.antivpn.core.*;
+import me.egg82.antivpn.core.IPResult;
+import me.egg82.antivpn.core.PlayerResult;
+import me.egg82.antivpn.core.PostVPNResult;
+import me.egg82.antivpn.core.RawVPNResult;
+import me.egg82.antivpn.core.VPNResult;
 import me.egg82.antivpn.services.StorageHandler;
 import me.egg82.antivpn.utils.ValidationUtil;
 import ninja.egg82.core.SQLExecuteResult;
@@ -18,6 +16,17 @@ import ninja.egg82.sql.SQL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sqlite.SQLiteErrorCode;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.StringReader;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.LinkedHashSet;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
 
 public class SQLite extends AbstractSQL {
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -28,7 +37,8 @@ public class SQLite extends AbstractSQL {
     private volatile long lastVPNID;
     private StorageHandler handler;
 
-    private SQLite() { }
+    private SQLite() {
+    }
 
     private volatile boolean closed = false;
 
@@ -37,16 +47,20 @@ public class SQLite extends AbstractSQL {
         sql.close();
     }
 
-    public boolean isClosed() { return closed || sql.isClosed(); }
+    public boolean isClosed() {
+        return closed || sql.isClosed();
+    }
 
-    public static SQLite.Builder builder(StorageHandler handler) { return new SQLite.Builder(handler); }
+    public static SQLite.Builder builder(StorageHandler handler) {
+        return new SQLite.Builder(handler);
+    }
 
     public static class Builder {
         private final SQLite result = new SQLite();
         private final HikariConfig config = new HikariConfig();
 
         private Builder(StorageHandler handler) {
-            if (handler == null) {
+            if(handler == null) {
                 throw new IllegalArgumentException("handler cannot be null.");
             }
 
@@ -99,10 +113,10 @@ public class SQLite extends AbstractSQL {
             SQLQueryResult r;
             try {
                 r = result.sql.query("SELECT MAX(`id`) FROM `" + result.prefix + "vpn_values`;");
-            } catch (SQLException ex) {
+            } catch(SQLException ex) {
                 throw new StorageException(false, ex);
             }
-            if (r.getData().length != 1) {
+            if(r.getData().length != 1) {
                 throw new StorageException(false, "Could not get VPN IDs.");
             }
             return r.getData()[0][0] != null ? ((Number) r.getData()[0][0]).longValue() : 0;
@@ -114,22 +128,22 @@ public class SQLite extends AbstractSQL {
         SQLQueryResult result;
         try {
             result = sql.query(
-                        "SELECT" +
-                        "  `v`.`id`," +
-                        "  `i`.`ip` AS `ip`," +
-                        "  `v`.`cascade`," +
-                        "  `v`.`consensus`," +
-                        "  `v`.`created`" +
-                        "FROM `" + prefix + "vpn_values` `v`" +
-                        "JOIN `" + prefix + "ips` `i` ON `i`.`id` = `v`.`ip_id`" +
-                        "WHERE `v`.`id` > ?;",
+                    "SELECT" +
+                            "  `v`.`id`," +
+                            "  `i`.`ip` AS `ip`," +
+                            "  `v`.`cascade`," +
+                            "  `v`.`consensus`," +
+                            "  `v`.`created`" +
+                            "FROM `" + prefix + "vpn_values` `v`" +
+                            "JOIN `" + prefix + "ips` `i` ON `i`.`id` = `v`.`ip_id`" +
+                            "WHERE `v`.`id` > ?;",
                     lastVPNID);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
-        for (Object[] row : result.getData()) {
+        for(Object[] row : result.getData()) {
             VPNResult r = getVPNResult(row);
-            if (r != null) {
+            if(r != null) {
                 lastVPNID = r.getID();
                 retVal.add(r);
             }
@@ -138,10 +152,10 @@ public class SQLite extends AbstractSQL {
     }
 
     public VPNResult getVPNByIP(String ip, long cacheTimeMillis) throws StorageException {
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
 
@@ -150,52 +164,52 @@ public class SQLite extends AbstractSQL {
         try {
             result = sql.query(
                     "SELECT" +
-                        "  `v`.`id`," +
-                        "  `i`.`ip` AS `ip`," +
-                        "  `v`.`cascade`," +
-                        "  `v`.`consensus`," +
-                        "  `v`.`created`" +
-                        "FROM `" + prefix + "vpn_values` `v`" +
-                        "JOIN `" + prefix + "ips` `i` ON `i`.`id` = `v`.`ip_id`" +
-                        "WHERE `v`.`created` >= DATETIME(CURRENT_TIMESTAMP, ?) AND `v`.`ip_id` = ?;",
+                            "  `v`.`id`," +
+                            "  `i`.`ip` AS `ip`," +
+                            "  `v`.`cascade`," +
+                            "  `v`.`consensus`," +
+                            "  `v`.`created`" +
+                            "FROM `" + prefix + "vpn_values` `v`" +
+                            "JOIN `" + prefix + "ips` `i` ON `i`.`id` = `v`.`ip_id`" +
+                            "WHERE `v`.`created` >= DATETIME(CURRENT_TIMESTAMP, ?) AND `v`.`ip_id` = ?;",
                     "-" + (cacheTimeMillis / 1000L) + " seconds", longIPID);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
-        if (result.getData().length == 1) {
+        if(result.getData().length == 1) {
             return getVPNResult(result.getData()[0]);
         }
         return null;
     }
 
     public PostVPNResult postVPN(String ip, Optional<Boolean> cascade, Optional<Double> consensus) throws StorageException {
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
-        if (cascade == null) {
+        if(cascade == null) {
             throw new IllegalArgumentException("cascade cannot be null.");
         }
-        if (consensus == null) {
+        if(consensus == null) {
             throw new IllegalArgumentException("consensus cannot be null.");
         }
 
         long longIPID = longIPIDCache.get(ip);
         try {
             sql.execute("INSERT INTO `" + prefix + "vpn_values` (`ip_id`, `cascade`, `consensus`) VALUES (?, ?, ?) ON CONFLICT(`ip_id`) DO UPDATE SET `cascade`=?, `consensus`=?, `created`=CURRENT_TIMESTAMP;", longIPID, cascade.orElse(null), consensus.orElse(null), cascade.orElse(null), consensus.orElse(null));
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
 
         SQLQueryResult query;
         try {
             query = sql.query("SELECT `id`, `created` FROM `" + prefix + "vpn_values` WHERE `ip_id`=?;", longIPID);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
-        if (query.getData().length != 1) {
+        if(query.getData().length != 1) {
             throw new StorageException(false, "Could not get data from inserted value.");
         }
 
@@ -212,7 +226,7 @@ public class SQLite extends AbstractSQL {
     public void setIPRaw(long longIPID, String ip) throws StorageException {
         try {
             sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?) ON CONFLICT(`id`) DO UPDATE SET `ip`=?;", longIPID, ip, ip);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
         longIPIDCache.put(ip, longIPID);
@@ -221,7 +235,7 @@ public class SQLite extends AbstractSQL {
     public void setPlayerRaw(long longPlayerID, UUID playerID) throws StorageException {
         try {
             sql.execute("INSERT INTO `" + prefix + "players` (`id`, `uuid`) VALUES (?, ?) ON CONFLICT(`id`) DO UPDATE SET `uuid`=?;", longPlayerID, playerID.toString(), playerID.toString());
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
         longPlayerIDCache.put(playerID, longPlayerID);
@@ -230,24 +244,30 @@ public class SQLite extends AbstractSQL {
     public void postVPNRaw(long id, long longIPID, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws StorageException {
         try {
             sql.execute("INSERT OR IGNORE INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", id, longIPID, cascade.orElse(null), consensus.orElse(null), new Timestamp(created));
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
-    protected void setKey(String key, String value) throws SQLException { sql.execute("INSERT INTO `" + prefix + "data` (`key`, `value`) VALUES (?, ?) ON CONFLICT(`key`) DO UPDATE SET `value`=?;", key, value, value); }
+    protected void setKey(String key, String value) throws SQLException {
+        sql.execute("INSERT INTO `" + prefix + "data` (`key`, `value`) VALUES (?, ?) ON CONFLICT(`key`) DO UPDATE SET `value`=?;", key, value, value);
+    }
 
     protected double getDouble(String key) throws SQLException {
         SQLQueryResult result = sql.query("SELECT `value` FROM `" + prefix + "data` WHERE `key`=?;", key);
-        if (result.getData().length == 1) {
+        if(result.getData().length == 1) {
             return Double.parseDouble((String) result.getData()[0][0]);
         }
         return -1.0d;
     }
 
-    public long getLongIPID(String ip) { return longIPIDCache.get(ip); }
+    public long getLongIPID(String ip) {
+        return longIPIDCache.get(ip);
+    }
 
-    public long getLongPlayerID(UUID playerID) { return longPlayerIDCache.get(playerID); }
+    public long getLongPlayerID(UUID playerID) {
+        return longPlayerIDCache.get(playerID);
+    }
 
     public Set<IPResult> dumpIPs(long begin, int size) throws StorageException {
         Set<IPResult> retVal = new LinkedHashSet<>();
@@ -255,13 +275,13 @@ public class SQLite extends AbstractSQL {
         SQLQueryResult result;
         try {
             result = sql.query("SELECT `id`, `ip` FROM `" + prefix + "ips` LIMIT ?, ?;", begin - 1, size);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
 
-        for (Object[] row : result.getData()) {
+        for(Object[] row : result.getData()) {
             String ip = (String) row[1];
-            if (!ValidationUtil.isValidIp(ip)) {
+            if(!ValidationUtil.isValidIp(ip)) {
                 logger.warn("IP ID " + ((Number) row[0]).longValue() + " has an invalid IP \"" + ip + "\".");
                 continue;
             }
@@ -278,20 +298,20 @@ public class SQLite extends AbstractSQL {
     public void loadIPs(Set<IPResult> ips, boolean truncate) throws StorageException {
         // TODO: Batch execute
         try {
-            if (truncate) {
+            if(truncate) {
                 sql.execute("PRAGMA foreign_keys = OFF;");
                 sql.execute("DELETE FROM `" + prefix + "ips`;");
                 sql.execute("VACUUM;");
                 longIPIDCache.invalidateAll();
             }
-            for (IPResult ip : ips) {
+            for(IPResult ip : ips) {
                 sql.execute("INSERT INTO `" + prefix + "ips` (`id`, `ip`) VALUES (?, ?);", ip.getLongIPID(), ip.getIP());
                 longIPIDCache.put(ip.getIP(), ip.getLongIPID());
             }
-            if (truncate) {
+            if(truncate) {
                 sql.execute("PRAGMA foreign_keys = ON;");
             }
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
@@ -302,13 +322,13 @@ public class SQLite extends AbstractSQL {
         SQLQueryResult result;
         try {
             result = sql.query("SELECT `id`, `uuid` FROM `" + prefix + "players` LIMIT ?, ?;", begin - 1, size);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
 
-        for (Object[] row : result.getData()) {
+        for(Object[] row : result.getData()) {
             String pid = (String) row[1];
-            if (!ValidationUtil.isValidUuid(pid)) {
+            if(!ValidationUtil.isValidUuid(pid)) {
                 logger.warn("Player ID " + ((Number) row[0]).longValue() + " has an invalid UUID \"" + pid + "\".");
                 continue;
             }
@@ -325,20 +345,20 @@ public class SQLite extends AbstractSQL {
     public void loadPlayers(Set<PlayerResult> players, boolean truncate) throws StorageException {
         // TODO: Batch execute
         try {
-            if (truncate) {
+            if(truncate) {
                 sql.execute("PRAGMA foreign_keys = OFF;");
                 sql.execute("DELETE FROM `" + prefix + "players`;");
                 sql.execute("VACUUM;");
                 longPlayerIDCache.invalidateAll();
             }
-            for (PlayerResult player : players) {
+            for(PlayerResult player : players) {
                 sql.execute("INSERT INTO `" + prefix + "players` (`id`, `uuid`) VALUES (?, ?);", player.getLongPlayerID(), player.getPlayerID().toString());
                 longPlayerIDCache.put(player.getPlayerID(), player.getLongPlayerID());
             }
-            if (truncate) {
+            if(truncate) {
                 sql.execute("PRAGMA foreign_keys = ON;");
             }
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
@@ -349,11 +369,11 @@ public class SQLite extends AbstractSQL {
         SQLQueryResult result;
         try {
             result = sql.query("SELECT `id`, `ip_id`, `cascade`, `consensus`, `created` FROM `" + prefix + "vpn_values` LIMIT ?, ?;", begin - 1, size);
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
 
-        for (Object[] row : result.getData()) {
+        for(Object[] row : result.getData()) {
             retVal.add(new RawVPNResult(
                     ((Number) row[0]).longValue(),
                     ((Number) row[1]).longValue(),
@@ -369,25 +389,25 @@ public class SQLite extends AbstractSQL {
     public void loadVPNValues(Set<RawVPNResult> values, boolean truncate) throws StorageException {
         // TODO: Batch execute
         try {
-            if (truncate) {
+            if(truncate) {
                 sql.execute("PRAGMA foreign_keys = OFF;");
                 sql.execute("DELETE FROM `" + prefix + "vpn_values`;");
                 sql.execute("VACUUM;");
             }
-            for (RawVPNResult value : values) {
+            for(RawVPNResult value : values) {
                 sql.execute("INSERT INTO `" + prefix + "vpn_values` (`id`, `ip_id`, `cascade`, `consensus`, `created`) VALUES (?, ?, ?, ?, ?);", value.getID(), value.getIPID(), value.getCascade().orElse(null), value.getConsensus().orElse(null), new Timestamp(value.getCreated()));
             }
-            if (truncate) {
+            if(truncate) {
                 sql.execute("PRAGMA foreign_keys = ON;");
             }
-        } catch (SQLException ex) {
+        } catch(SQLException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     private VPNResult getVPNResult(Object[] row) {
         String ip = (String) row[1];
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             logger.warn("VPN ID " + row[0] + " has an invalid IP \"" + row[1] + "\".");
             return null;
         }
@@ -404,13 +424,13 @@ public class SQLite extends AbstractSQL {
     private long getLongIPIDExpensive(String ip) throws SQLException, StorageException {
         // A majority of the time there'll be an ID
         SQLQueryResult result = sql.query("SELECT `id` FROM `" + prefix + "ips` WHERE `ip`=?;", ip);
-        if (result.getData().length == 1) {
+        if(result.getData().length == 1) {
             return ((Number) result.getData()[0][0]).longValue();
         }
 
         // No ID, generate one
         SQLExecuteResult r = sql.execute("INSERT INTO `" + prefix + "ips` (`ip`) VALUES (?);", ip);
-        if (r.getAutoGeneratedKeys().length != 1) {
+        if(r.getAutoGeneratedKeys().length != 1) {
             throw new StorageException(false, "Could not get generated keys from inserted IP.");
         }
         long id = ((Number) r.getAutoGeneratedKeys()[0]).longValue();
@@ -421,13 +441,13 @@ public class SQLite extends AbstractSQL {
     private long getLongPlayerIDExpensive(UUID uuid) throws SQLException, StorageException {
         // A majority of the time there'll be an ID
         SQLQueryResult result = sql.query("SELECT `id` FROM `" + prefix + "players` WHERE `uuid`=?;", uuid.toString());
-        if (result.getData().length == 1) {
+        if(result.getData().length == 1) {
             return ((Number) result.getData()[0][0]).longValue();
         }
 
         // No ID, generate one
         SQLExecuteResult r = sql.execute("INSERT INTO `" + prefix + "players` (`uuid`) VALUES (?);", uuid.toString());
-        if (r.getAutoGeneratedKeys().length != 1) {
+        if(r.getAutoGeneratedKeys().length != 1) {
             throw new StorageException(false, "Could not get generated keys from inserted player.");
         }
         long id = ((Number) r.getAutoGeneratedKeys()[0]).longValue();
@@ -436,13 +456,13 @@ public class SQLite extends AbstractSQL {
     }
 
     private Timestamp getTime(Object o) {
-        if (o instanceof String) {
+        if(o instanceof String) {
             try {
                 return Timestamp.valueOf((String) o);
-            } catch (IllegalArgumentException ignored) {
+            } catch(IllegalArgumentException ignored) {
                 return new Timestamp(Long.valueOf((String) o));
             }
-        } else if (o instanceof Number) {
+        } else if(o instanceof Number) {
             return new Timestamp(((Number) o).longValue());
         }
         logger.warn("Could not parse time.");
@@ -450,7 +470,7 @@ public class SQLite extends AbstractSQL {
     }
 
     protected boolean isAutomaticallyRecoverable(SQLException ex) {
-        if (
+        if(
                 ex.getErrorCode() == SQLiteErrorCode.SQLITE_BUSY.code
                         || ex.getErrorCode() == SQLiteErrorCode.SQLITE_LOCKED.code
                         || ex.getErrorCode() == SQLiteErrorCode.SQLITE_NOMEM.code

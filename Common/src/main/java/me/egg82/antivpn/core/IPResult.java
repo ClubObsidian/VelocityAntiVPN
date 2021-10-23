@@ -15,16 +15,22 @@ public class IPResult {
         hc = Objects.hash(longIPID);
     }
 
-    public long getLongIPID() { return longIPID; }
+    public long getLongIPID() {
+        return longIPID;
+    }
 
-    public String getIP() { return ip; }
+    public String getIP() {
+        return ip;
+    }
 
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof IPResult)) return false;
+        if(this == o) return true;
+        if(!(o instanceof IPResult)) return false;
         IPResult that = (IPResult) o;
         return longIPID == that.longIPID;
     }
 
-    public int hashCode() { return hc; }
+    public int hashCode() {
+        return hc;
+    }
 }

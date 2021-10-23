@@ -22,22 +22,34 @@ public class VPNResult {
         hc = Objects.hash(id);
     }
 
-    public long getID() { return id; }
+    public long getID() {
+        return id;
+    }
 
-    public String getIP() { return ip; }
+    public String getIP() {
+        return ip;
+    }
 
-    public Optional<Boolean> getCascade() { return cascade; }
+    public Optional<Boolean> getCascade() {
+        return cascade;
+    }
 
-    public Optional<Double> getConsensus() { return consensus; }
+    public Optional<Double> getConsensus() {
+        return consensus;
+    }
 
-    public long getCreated() { return created; }
+    public long getCreated() {
+        return created;
+    }
 
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof VPNResult)) return false;
+        if(this == o) return true;
+        if(!(o instanceof VPNResult)) return false;
         VPNResult that = (VPNResult) o;
         return id == that.id;
     }
 
-    public int hashCode() { return hc; }
+    public int hashCode() {
+        return hc;
+    }
 }

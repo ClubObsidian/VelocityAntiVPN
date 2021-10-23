@@ -11,7 +11,7 @@ public class ReloadCommand implements Runnable {
     private final Object plugin;
     private final ProxyServer proxy;
     private final PluginDescription description;
-    private StorageMessagingHandler handler;
+    private final StorageMessagingHandler handler;
     private final CommandIssuer issuer;
 
     public ReloadCommand(Object plugin, ProxyServer proxy, PluginDescription description, StorageMessagingHandler handler, CommandIssuer issuer) {

@@ -2,7 +2,10 @@ package me.egg82.antivpn.messaging;
 
 public class MessagingException extends Exception {
     private final boolean automaticallyRecoverable;
-    public boolean isAutomaticallyRecoverable() { return automaticallyRecoverable; }
+
+    public boolean isAutomaticallyRecoverable() {
+        return automaticallyRecoverable;
+    }
 
     public MessagingException(boolean automaticallyRecoverable, String message) {
         super(message);

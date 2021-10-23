@@ -1,17 +1,19 @@
 package me.egg82.antivpn.services.lookup;
 
 import com.velocitypowered.api.proxy.ProxyServer;
+
 import java.io.IOException;
 import java.util.UUID;
 
 public class PlayerLookup {
-    private PlayerLookup() { }
+    private PlayerLookup() {
+    }
 
     public static PlayerInfo get(UUID uuid, ProxyServer proxy) throws IOException {
-        if (uuid == null) {
+        if(uuid == null) {
             throw new IllegalArgumentException("uuid cannot be null.");
         }
-        if (proxy == null) {
+        if(proxy == null) {
             throw new IllegalArgumentException("proxy cannot be null.");
         }
 
@@ -19,10 +21,10 @@ public class PlayerLookup {
     }
 
     public static PlayerInfo get(String name, ProxyServer proxy) throws IOException {
-        if (name == null) {
+        if(name == null) {
             throw new IllegalArgumentException("name cannot be null.");
         }
-        if (proxy == null) {
+        if(proxy == null) {
             throw new IllegalArgumentException("proxy cannot be null.");
         }
 

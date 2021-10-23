@@ -5,9 +5,12 @@ import java.util.UUID;
 
 public interface Messaging {
     void close();
+
     boolean isClosed();
 
     void sendIP(UUID messageID, long longIPID, String ip) throws MessagingException;
+
     void sendPlayer(UUID messageID, long longPlayerID, UUID playerID) throws MessagingException;
+
     void sendPostVPN(UUID messageID, long id, long longIPID, String ip, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws MessagingException;
 }

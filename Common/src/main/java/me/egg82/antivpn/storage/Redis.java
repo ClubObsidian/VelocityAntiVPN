@@ -2,9 +2,11 @@ package me.egg82.antivpn.storage;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
-import me.egg82.antivpn.core.*;
+import me.egg82.antivpn.core.IPResult;
+import me.egg82.antivpn.core.PlayerResult;
+import me.egg82.antivpn.core.PostVPNResult;
+import me.egg82.antivpn.core.RawVPNResult;
+import me.egg82.antivpn.core.VPNResult;
 import me.egg82.antivpn.services.StorageHandler;
 import me.egg82.antivpn.utils.ValidationUtil;
 import ninja.egg82.analytics.utils.JSONUtil;
@@ -12,8 +14,19 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.*;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.ScanParams;
+import redis.clients.jedis.ScanResult;
 import redis.clients.jedis.exceptions.JedisException;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Redis implements Storage {
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -27,7 +40,8 @@ public class Redis implements Storage {
     private StorageHandler handler;
     protected String prefix = "";
 
-    private Redis() { }
+    private Redis() {
+    }
 
     private volatile boolean closed = false;
 
@@ -36,9 +50,13 @@ public class Redis implements Storage {
         pool.close();
     }
 
-    public boolean isClosed() { return closed || pool.isClosed(); }
+    public boolean isClosed() {
+        return closed || pool.isClosed();
+    }
 
-    public static Redis.Builder builder(StorageHandler handler) { return new Redis.Builder(handler); }
+    public static Redis.Builder builder(StorageHandler handler) {
+        return new Redis.Builder(handler);
+    }
 
     public static class Builder {
         private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -52,7 +70,7 @@ public class Redis implements Storage {
         private String pass = "";
 
         private Builder(StorageHandler handler) {
-            if (handler == null) {
+            if(handler == null) {
                 throw new IllegalArgumentException("handler cannot be null.");
             }
 
@@ -95,7 +113,7 @@ public class Redis implements Storage {
         }
 
         private void setDefaults() {
-            try (Jedis redis = result.pool.getResource()) {
+            try(Jedis redis = result.pool.getResource()) {
                 redis.setnx(result.prefix + "ips:idx", "0");
                 redis.setnx(result.prefix + "players:idx", "0");
                 redis.setnx(result.prefix + "vpn_values:idx", "0");
@@ -105,36 +123,36 @@ public class Redis implements Storage {
         private void warmup(JedisPool pool) throws StorageException {
             Jedis[] warmpupArr = new Jedis[config.getMinIdle()];
 
-            for (int i = 0; i < config.getMinIdle(); i++) {
+            for(int i = 0; i < config.getMinIdle(); i++) {
                 Jedis jedis;
                 try {
                     jedis = pool.getResource();
                     warmpupArr[i] = jedis;
                     jedis.ping();
-                } catch (JedisException ex) {
+                } catch(JedisException ex) {
                     throw new StorageException(false, "Could not warm up Redis connection.", ex);
                 }
             }
             // Two loops because we need to ensure we don't pull a freshly-created resource from the pool
-            for (int i = 0; i < config.getMinIdle(); i++) {
+            for(int i = 0; i < config.getMinIdle(); i++) {
                 Jedis jedis;
                 try {
                     jedis = warmpupArr[i];
                     jedis.close();
-                } catch (JedisException ex) {
+                } catch(JedisException ex) {
                     throw new StorageException(false, "Could not close warmed Redis connection.", ex);
                 }
             }
         }
 
         private long getLastVPNID() throws StorageException {
-            try (Jedis redis = result.pool.getResource()) {
+            try(Jedis redis = result.pool.getResource()) {
                 long id = Long.parseLong(redis.get(result.prefix + "vpn_values:idx"));
-                while (redis.exists(result.prefix + "vpn_values:" + (id + 1))) {
+                while(redis.exists(result.prefix + "vpn_values:" + (id + 1))) {
                     id = redis.incr(result.prefix + "vpn_values:idx");
                 }
                 return id;
-            } catch (JedisException ex) {
+            } catch(JedisException ex) {
                 throw new StorageException(false, "Could not get last VPN ID.");
             }
         }
@@ -143,53 +161,53 @@ public class Redis implements Storage {
     public Set<VPNResult> getVPNQueue() throws StorageException {
         Set<VPNResult> retVal = new LinkedHashSet<>();
 
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             long max = Long.parseLong(redis.get(prefix + "vpn_values:idx"));
-            while (redis.exists(prefix + "vpn_values:" + (max + 1))) {
+            while(redis.exists(prefix + "vpn_values:" + (max + 1))) {
                 max = redis.incr(prefix + "vpn_values:idx");
             }
 
-            if (lastVPNID.get() >= max) {
+            if(lastVPNID.get() >= max) {
                 lastVPNID.set(max);
                 return retVal;
             }
 
             long next;
-            while ((next = lastVPNID.getAndIncrement()) < max) {
+            while((next = lastVPNID.getAndIncrement()) < max) {
                 VPNResult r = null;
                 try {
                     r = getVPNResult(next, redis.get(prefix + "vpn_values:" + next), redis);
-                } catch (StorageException | JedisException | ParseException | ClassCastException ex) {
+                } catch(StorageException | JedisException | ParseException | ClassCastException ex) {
                     logger.warn("Could not get VPN data for ID " + next + ".", ex);
                 }
-                if (r != null) {
+                if(r != null) {
                     retVal.add(r);
                 }
             }
 
             return retVal;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public VPNResult getVPNByIP(String ip, long cacheTimeMillis) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             long longIPID = longIPIDCache.get(ip);
             try {
                 return getVPNResultIP(longIPID, redis.get(prefix + "vpn_values:ip:" + longIPID), redis, cacheTimeMillis);
-            } catch (StorageException | JedisException | ParseException | ClassCastException ex) {
+            } catch(StorageException | JedisException | ParseException | ClassCastException ex) {
                 logger.warn("Could not get VPN data for IP " + longIPID + ".", ex);
             }
 
             return null;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public PostVPNResult postVPN(String ip, Optional<Boolean> cascade, Optional<Double> consensus) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             long longIPID = longIPIDCache.get(ip);
 
             JSONObject obj = new JSONObject();
@@ -202,10 +220,10 @@ public class Redis implements Storage {
             do {
                 do {
                     id = redis.incr(prefix + "vpn_values:idx");
-                } while (redis.exists(prefix + "vpn_values:" + id));
+                } while(redis.exists(prefix + "vpn_values:" + id));
                 created = getTime(redis.time());
                 obj.put("created", created);
-            } while (redis.setnx(prefix + "vpn_values:" + id, obj.toJSONString()) == 0L);
+            } while(redis.setnx(prefix + "vpn_values:" + id, obj.toJSONString()) == 0L);
 
             obj.remove("ipID");
             obj.put("id", id);
@@ -219,13 +237,13 @@ public class Redis implements Storage {
                     consensus,
                     created
             );
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void setIPRaw(long longIPID, String ip) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             JSONObject obj = new JSONObject();
             obj.put("ip", ip);
 
@@ -237,13 +255,13 @@ public class Redis implements Storage {
                     prefix + "ip:" + ip, obj2.toJSONString()
             );
             longIPIDCache.put(ip, longIPID);
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void setPlayerRaw(long longPlayerID, UUID playerID) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             JSONObject obj = new JSONObject();
             obj.put("id", playerID.toString());
 
@@ -255,13 +273,13 @@ public class Redis implements Storage {
                     prefix + "players:" + playerID.toString(), obj2.toJSONString()
             );
             longPlayerIDCache.put(playerID, longPlayerID);
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void postVPNRaw(long id, long longIPID, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             JSONObject obj = new JSONObject();
             obj.put("ipID", longIPID);
             obj.put("cascade", cascade.orElse(null));
@@ -273,29 +291,33 @@ public class Redis implements Storage {
             obj.remove("ipID");
             obj.put("id", id);
             redis.rpush(prefix + "vpn_values:ip:" + longIPID, obj.toJSONString());
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
-    public long getLongIPID(String ip) { return longIPIDCache.get(ip); }
+    public long getLongIPID(String ip) {
+        return longIPIDCache.get(ip);
+    }
 
-    public long getLongPlayerID(UUID playerID) { return longPlayerIDCache.get(playerID); }
+    public long getLongPlayerID(UUID playerID) {
+        return longPlayerIDCache.get(playerID);
+    }
 
     public Set<IPResult> dumpIPs(long begin, int size) throws StorageException {
         Set<IPResult> retVal = new LinkedHashSet<>();
 
-        try (Jedis redis = pool.getResource()) {
-            for (long i = begin; i < begin + size; i++) {
+        try(Jedis redis = pool.getResource()) {
+            for(long i = begin; i < begin + size; i++) {
                 IPResult r = null;
                 try {
                     String json = redis.get(prefix + "ips:" + i);
-                    if (json == null) {
+                    if(json == null) {
                         continue;
                     }
                     JSONObject obj = JSONUtil.parseObject(json);
                     String ip = (String) obj.get("ip");
-                    if (!ValidationUtil.isValidIp(ip)) {
+                    if(!ValidationUtil.isValidIp(ip)) {
                         logger.warn("Player ID " + i + " has an invalid IP \"" + ip + "\".");
                         continue;
                     }
@@ -304,28 +326,28 @@ public class Redis implements Storage {
                             i,
                             ip
                     );
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     logger.warn("Could not get IP data for ID " + i + ".", ex);
                 }
-                if (r != null) {
+                if(r != null) {
                     retVal.add(r);
                 }
             }
 
             return retVal;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void loadIPs(Set<IPResult> ips, boolean truncate) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            if (truncate) {
+        try(Jedis redis = pool.getResource()) {
+            if(truncate) {
                 deleteNamespace(redis, prefix + "ips:");
                 longIPIDCache.invalidateAll();
             }
             long max = 0;
-            for (IPResult ip : ips) {
+            for(IPResult ip : ips) {
                 max = Math.max(max, ip.getLongIPID());
 
                 JSONObject obj = new JSONObject();
@@ -341,7 +363,7 @@ public class Redis implements Storage {
                 longIPIDCache.put(ip.getIP(), ip.getLongIPID());
             }
             redis.set(prefix + "ips:idx", String.valueOf(max));
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
@@ -349,17 +371,17 @@ public class Redis implements Storage {
     public Set<PlayerResult> dumpPlayers(long begin, int size) throws StorageException {
         Set<PlayerResult> retVal = new LinkedHashSet<>();
 
-        try (Jedis redis = pool.getResource()) {
-            for (long i = begin; i < begin + size; i++) {
+        try(Jedis redis = pool.getResource()) {
+            for(long i = begin; i < begin + size; i++) {
                 PlayerResult r = null;
                 try {
                     String json = redis.get(prefix + "players:" + i);
-                    if (json == null) {
+                    if(json == null) {
                         continue;
                     }
                     JSONObject obj = JSONUtil.parseObject(json);
                     String pid = (String) obj.get("id");
-                    if (!ValidationUtil.isValidUuid(pid)) {
+                    if(!ValidationUtil.isValidUuid(pid)) {
                         logger.warn("Player ID " + i + " has an invalid UUID \"" + pid + "\".");
                         continue;
                     }
@@ -368,28 +390,28 @@ public class Redis implements Storage {
                             i,
                             UUID.fromString(pid)
                     );
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     logger.warn("Could not get player data for ID " + i + ".", ex);
                 }
-                if (r != null) {
+                if(r != null) {
                     retVal.add(r);
                 }
             }
 
             return retVal;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void loadPlayers(Set<PlayerResult> players, boolean truncate) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            if (truncate) {
+        try(Jedis redis = pool.getResource()) {
+            if(truncate) {
                 deleteNamespace(redis, prefix + "players:");
                 longPlayerIDCache.invalidateAll();
             }
             long max = 0;
-            for (PlayerResult player : players) {
+            for(PlayerResult player : players) {
                 max = Math.max(max, player.getLongPlayerID());
 
                 JSONObject obj = new JSONObject();
@@ -405,7 +427,7 @@ public class Redis implements Storage {
                 longPlayerIDCache.put(player.getPlayerID(), player.getLongPlayerID());
             }
             redis.set(prefix + "players:idx", String.valueOf(max));
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
@@ -413,12 +435,12 @@ public class Redis implements Storage {
     public Set<RawVPNResult> dumpVPNValues(long begin, int size) throws StorageException {
         Set<RawVPNResult> retVal = new LinkedHashSet<>();
 
-        try (Jedis redis = pool.getResource()) {
-            for (long i = begin; i < begin + size; i++) {
+        try(Jedis redis = pool.getResource()) {
+            for(long i = begin; i < begin + size; i++) {
                 RawVPNResult r = null;
                 try {
                     String json = redis.get(prefix + "vpn_values:" + i);
-                    if (json == null) {
+                    if(json == null) {
                         continue;
                     }
                     JSONObject obj = JSONUtil.parseObject(json);
@@ -429,27 +451,27 @@ public class Redis implements Storage {
                             obj.get("consensus") == null ? Optional.empty() : Optional.of(((Number) obj.get("consensus")).doubleValue()),
                             ((Number) obj.get("created")).longValue()
                     );
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     logger.warn("Could not get VPN data for ID " + i + ".", ex);
                 }
-                if (r != null) {
+                if(r != null) {
                     retVal.add(r);
                 }
             }
 
             return retVal;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void loadVPNValues(Set<RawVPNResult> values, boolean truncate) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
-            if (truncate) {
+        try(Jedis redis = pool.getResource()) {
+            if(truncate) {
                 deleteNamespace(redis, prefix + "vpn_values:");
             }
             long max = 0;
-            for (RawVPNResult r : values) {
+            for(RawVPNResult r : values) {
                 max = Math.max(max, r.getID());
                 JSONObject obj = new JSONObject();
                 obj.put("ipID", r.getIPID());
@@ -464,13 +486,13 @@ public class Redis implements Storage {
                 redis.rpush(prefix + "vpn_values:ip:" + r.getIPID(), obj.toJSONString());
             }
             redis.set(prefix + "vpn_values:idx", String.valueOf(max));
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     private VPNResult getVPNResult(long id, String json, Jedis redis) throws StorageException, JedisException, ParseException, ClassCastException {
-        if (json == null) {
+        if(json == null) {
             return null;
         }
 
@@ -481,12 +503,12 @@ public class Redis implements Storage {
         long created = ((Number) obj.get("created")).longValue();
 
         String ipJSON = redis.get(prefix + "ips:" + longIPID);
-        if (ipJSON == null) {
+        if(ipJSON == null) {
             throw new StorageException(false, "Could not get IP data for ID " + longIPID + ".");
         }
         JSONObject ipObj = JSONUtil.parseObject(ipJSON);
         String ip = (String) ipObj.get("ip");
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             redis.del(prefix + "ips:" + longIPID);
             throw new StorageException(false, "IP ID " + longIPID + " has an invalid IP \"" + ip + "\".");
         }
@@ -501,7 +523,7 @@ public class Redis implements Storage {
     }
 
     private VPNResult getVPNResultIP(long longIPID, String json, Jedis redis, long cacheTimeMillis) throws StorageException, JedisException, ParseException, ClassCastException {
-        if (json == null) {
+        if(json == null) {
             return null;
         }
 
@@ -511,17 +533,17 @@ public class Redis implements Storage {
         Optional<Double> consensus = obj.get("consensus") == null ? Optional.empty() : Optional.of(((Number) obj.get("consensus")).doubleValue());
         long created = ((Number) obj.get("created")).longValue();
 
-        if (created < getTime(redis.time()) - cacheTimeMillis) {
+        if(created < getTime(redis.time()) - cacheTimeMillis) {
             return null;
         }
 
         String ipJSON = redis.get(prefix + "ips:" + longIPID);
-        if (ipJSON == null) {
+        if(ipJSON == null) {
             throw new StorageException(false, "Could not get IP data for ID " + longIPID + ".");
         }
         JSONObject ipObj = JSONUtil.parseObject(ipJSON);
         String ip = (String) ipObj.get("ip");
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             redis.del(prefix + "ips:" + longIPID);
             throw new StorageException(false, "IP ID " + longIPID + " has an invalid IP \"" + ip + "\".");
         }
@@ -545,26 +567,26 @@ public class Redis implements Storage {
         do {
             result = redis.scan(String.valueOf(current), params);
             List<String> r = result.getResult();
-            if (!r.isEmpty()) {
+            if(!r.isEmpty()) {
                 redis.del(r.toArray(new String[0]));
             }
             current = Long.parseLong(result.getCursor());
-        } while (!result.isCompleteIteration());
+        } while(!result.isCompleteIteration());
     }
 
     private long getLongIPIDExpensive(String ip) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             // A majority of the time there'll be an ID
             String json = redis.get(prefix + "ips:" + ip);
-            if (json != null) {
+            if(json != null) {
                 JSONObject obj = null;
                 try {
                     obj = JSONUtil.parseObject(json);
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     redis.del(prefix + "ips:" + ip);
                     logger.warn("Could not parse IP data. Deleted key.");
                 }
-                if (obj != null) {
+                if(obj != null) {
                     return ((Number) obj.get("longID")).longValue();
                 }
             }
@@ -579,33 +601,33 @@ public class Redis implements Storage {
             do {
                 do {
                     id = redis.incr(prefix + "ips:idx");
-                } while (redis.exists(prefix + "ips:" + id));
+                } while(redis.exists(prefix + "ips:" + id));
                 obj2.put("longID", id);
-            } while (redis.msetnx(
+            } while(redis.msetnx(
                     prefix + "ips:" + id, obj.toJSONString(),
                     prefix + "ips:" + ip, obj2.toJSONString()
             ) == 0L);
 
             handler.ipIDCreationCallback(ip, id, this);
             return id;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     private long getLongPlayerIDExpensive(UUID uuid) throws StorageException {
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             // A majority of the time there'll be an ID
             String json = redis.get(prefix + "players:" + uuid.toString());
-            if (json != null) {
+            if(json != null) {
                 JSONObject obj = null;
                 try {
                     obj = JSONUtil.parseObject(json);
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     redis.del(prefix + "players:" + uuid.toString());
                     logger.warn("Could not parse player data. Deleted key.");
                 }
-                if (obj != null) {
+                if(obj != null) {
                     return ((Number) obj.get("longID")).longValue();
                 }
             }
@@ -620,22 +642,22 @@ public class Redis implements Storage {
             do {
                 do {
                     id = redis.incr(prefix + "players:idx");
-                } while (redis.exists(prefix + "players:" + id));
+                } while(redis.exists(prefix + "players:" + id));
                 obj2.put("longID", id);
-            } while (redis.msetnx(
+            } while(redis.msetnx(
                     prefix + "players:" + id, obj.toJSONString(),
                     prefix + "players:" + uuid.toString(), obj2.toJSONString()
             ) == 0L);
 
             handler.playerIDCreationCallback(uuid, id, this);
             return id;
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new StorageException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     private boolean isAutomaticallyRecoverable(JedisException ex) {
-        if (
+        if(
                 ex.getMessage().startsWith("Failed connecting")
                         || ex.getMessage().contains("broken connection")
         ) {
@@ -648,5 +670,7 @@ public class Redis implements Storage {
     // o[0] = unix time in seconds
     // o[1] = microseconds since last second
     // Therefore, to get unix time in millis we multiply seconds by 1000, divide microseconds by 1000, and add them together
-    private long getTime(List<String> o) { return Long.parseLong(o.get(0)) * 1000L + Long.parseLong(o.get(1)) / 1000L; }
+    private long getTime(List<String> o) {
+        return Long.parseLong(o.get(0)) * 1000L + Long.parseLong(o.get(1)) / 1000L;
+    }
 }

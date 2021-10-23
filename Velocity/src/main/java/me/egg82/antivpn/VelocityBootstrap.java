@@ -7,12 +7,13 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.PluginDescription;
 import com.velocitypowered.api.proxy.ProxyServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.inject.Inject;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import javax.inject.Inject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Plugin(
         id = "antivpn",
@@ -24,33 +25,33 @@ import org.slf4j.LoggerFactory;
 public class VelocityBootstrap {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private ProxyServer proxy;
-    private PluginDescription description;
+    private final ProxyServer proxy;
+    private final PluginDescription description;
 
-    private AntiVPN concrete;
+    private final AntiVPN concrete;
 
     @Inject
     public VelocityBootstrap(ProxyServer proxy, PluginDescription description) {
         this.proxy = proxy;
         this.description = description;
 
-        if (!description.getSource().isPresent()) {
+        if(!description.getSource().isPresent()) {
             throw new RuntimeException("Could not get plugin file path.");
         }
-        if (!description.getName().isPresent()) {
+        if(!description.getName().isPresent()) {
             throw new RuntimeException("Could not get plugin name.");
         }
 
         try {
             DriverManager.registerDriver((Driver) Class.forName("org.sqlite.JDBC").newInstance());
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | SQLException ex) {
+        } catch(ClassNotFoundException | InstantiationException | IllegalAccessException | SQLException ex) {
             logger.error(ex.getMessage(), ex);
         }
 
         // MySQL is automatically registered
         try {
             Class.forName("com.mysql.cj.jdbc.Driver").newInstance();
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
+        } catch(ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
             logger.error(ex.getMessage(), ex);
         }
 

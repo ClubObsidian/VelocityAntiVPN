@@ -5,7 +5,8 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 public class LogUtil {
-    private LogUtil() {}
+    private LogUtil() {
+    }
 
     public static TextComponent getHeading() {
         return Component.text("[").color(NamedTextColor.YELLOW)

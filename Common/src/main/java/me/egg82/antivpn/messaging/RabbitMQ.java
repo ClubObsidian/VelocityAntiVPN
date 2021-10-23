@@ -1,6 +1,21 @@
 package me.egg82.antivpn.messaging;
 
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Consumer;
+import com.rabbitmq.client.DefaultConsumer;
+import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.LongString;
+import com.rabbitmq.client.RecoverableChannel;
+import com.rabbitmq.client.RecoverableConnection;
+import me.egg82.antivpn.services.MessagingHandler;
+import me.egg82.antivpn.utils.ValidationUtil;
+import ninja.egg82.analytics.utils.JSONUtil;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -9,13 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
-import me.egg82.antivpn.services.MessagingHandler;
-import me.egg82.antivpn.utils.ValidationUtil;
-import ninja.egg82.analytics.utils.JSONUtil;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class RabbitMQ implements Messaging {
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -31,7 +39,8 @@ public class RabbitMQ implements Messaging {
     private UUID uuidServerID;
     private MessagingHandler handler;
 
-    private RabbitMQ() { }
+    private RabbitMQ() {
+    }
 
     private volatile boolean closed = false;
 
@@ -39,22 +48,27 @@ public class RabbitMQ implements Messaging {
         closed = true;
         try {
             connection.close(8000);
-        } catch (IOException ignored) { }
+        } catch(IOException ignored) {
+        }
     }
 
-    public boolean isClosed() { return closed || !connection.isOpen(); }
+    public boolean isClosed() {
+        return closed || !connection.isOpen();
+    }
 
-    public static RabbitMQ.Builder builder(UUID serverID, MessagingHandler handler) { return new RabbitMQ.Builder(serverID, handler); }
+    public static RabbitMQ.Builder builder(UUID serverID, MessagingHandler handler) {
+        return new RabbitMQ.Builder(serverID, handler);
+    }
 
     public static class Builder {
         private final RabbitMQ result = new RabbitMQ();
         private final ConnectionFactory config = new ConnectionFactory();
 
         private Builder(UUID serverID, MessagingHandler handler) {
-            if (serverID == null) {
+            if(serverID == null) {
                 throw new IllegalArgumentException("serverID cannot be null.");
             }
-            if (handler == null) {
+            if(handler == null) {
                 throw new IllegalArgumentException("handler cannot be null.");
             }
 
@@ -87,7 +101,7 @@ public class RabbitMQ implements Messaging {
                 result.connection = result.getConnection();
                 // Bind queues
                 result.bind();
-            } catch (IOException | TimeoutException ex) {
+            } catch(IOException | TimeoutException ex) {
                 throw new MessagingException(false, "Could not create RabbitMQ connection.", ex);
             }
             return result;
@@ -103,7 +117,7 @@ public class RabbitMQ implements Messaging {
             public void handleDelivery(String tag, Envelope envelope, AMQP.BasicProperties props, byte[] body) throws IOException {
                 try {
                     receiveIP(props, new String(body, props.getContentEncoding()));
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     logger.warn("Could not parse incoming data.", ex);
                 }
             }
@@ -118,7 +132,7 @@ public class RabbitMQ implements Messaging {
             public void handleDelivery(String tag, Envelope envelope, AMQP.BasicProperties props, byte[] body) throws IOException {
                 try {
                     receivePlayer(props, new String(body, props.getContentEncoding()));
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     logger.warn("Could not parse incoming data.", ex);
                 }
             }
@@ -133,7 +147,7 @@ public class RabbitMQ implements Messaging {
             public void handleDelivery(String tag, Envelope envelope, AMQP.BasicProperties props, byte[] body) throws IOException {
                 try {
                     receivePostVPN(props, new String(body, props.getContentEncoding()));
-                } catch (ParseException | ClassCastException ex) {
+                } catch(ParseException | ClassCastException ex) {
                     logger.warn("Could not parse incoming data.", ex);
                 }
             }
@@ -142,70 +156,70 @@ public class RabbitMQ implements Messaging {
     }
 
     public void sendIP(UUID messageID, long longIPID, String ip) throws MessagingException {
-        if (messageID == null) {
+        if(messageID == null) {
             throw new IllegalArgumentException("messageID cannot be null.");
         }
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
 
-        try (RecoverableChannel channel = getChannel()) {
+        try(RecoverableChannel channel = getChannel()) {
             JSONObject obj = new JSONObject();
             obj.put("longID", longIPID);
             obj.put("ip", ip);
             AMQP.BasicProperties props = getProperties(DeliveryMode.PERSISTENT);
             channel.exchangeDeclare("antivpn-ip", ExchangeType.FANOUT.getType(), true);
             channel.basicPublish("antivpn-ip", "", props, obj.toJSONString().getBytes(props.getContentEncoding()));
-        } catch (IOException ex) {
+        } catch(IOException ex) {
             throw new MessagingException(false, ex);
-        } catch (TimeoutException ex) {
+        } catch(TimeoutException ex) {
             throw new MessagingException(true, ex);
         }
     }
 
     public void sendPlayer(UUID messageID, long longPlayerID, UUID playerID) throws MessagingException {
-        if (messageID == null) {
+        if(messageID == null) {
             throw new IllegalArgumentException("messageID cannot be null.");
         }
-        if (playerID == null) {
+        if(playerID == null) {
             throw new IllegalArgumentException("playerID cannot be null.");
         }
 
-        try (RecoverableChannel channel = getChannel()) {
+        try(RecoverableChannel channel = getChannel()) {
             JSONObject obj = new JSONObject();
             obj.put("longID", longPlayerID);
             obj.put("id", playerID.toString());
             AMQP.BasicProperties props = getProperties(DeliveryMode.PERSISTENT);
             channel.exchangeDeclare("antivpn-player", ExchangeType.FANOUT.getType(), true);
             channel.basicPublish("antivpn-player", "", props, obj.toJSONString().getBytes(props.getContentEncoding()));
-        } catch (IOException ex) {
+        } catch(IOException ex) {
             throw new MessagingException(false, ex);
-        } catch (TimeoutException ex) {
+        } catch(TimeoutException ex) {
             throw new MessagingException(true, ex);
         }
     }
 
     public void sendPostVPN(UUID messageID, long id, long longIPID, String ip, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws MessagingException {
-        if (messageID == null) {
+        if(messageID == null) {
             throw new IllegalArgumentException("messageID cannot be null.");
         }
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
-        if (cascade == null) {
+        if(cascade == null) {
             throw new IllegalArgumentException("cascade cannot be null.");
         }
-        if (consensus == null) {
+        if(consensus == null) {
             throw new IllegalArgumentException("consensus cannot be null.");
         }
 
-        try (RecoverableChannel channel = getChannel()) {
+        try(RecoverableChannel channel = getChannel()) {
             JSONObject obj = new JSONObject();
             obj.put("id", id);
             obj.put("longIPID", longIPID);
@@ -216,9 +230,9 @@ public class RabbitMQ implements Messaging {
             AMQP.BasicProperties props = getProperties(DeliveryMode.PERSISTENT);
             channel.exchangeDeclare("antivpn-post-vpn", ExchangeType.FANOUT.getType(), true);
             channel.basicPublish("antivpn-post-vpn", "", props, obj.toJSONString().getBytes(props.getContentEncoding()));
-        } catch (IOException ex) {
+        } catch(IOException ex) {
             throw new MessagingException(false, ex);
-        } catch (TimeoutException ex) {
+        } catch(TimeoutException ex) {
             throw new MessagingException(true, ex);
         }
     }
@@ -237,27 +251,27 @@ public class RabbitMQ implements Messaging {
     }
 
     private void receiveIP(AMQP.BasicProperties props, String json) throws UnsupportedEncodingException, ParseException, ClassCastException {
-        if (props.getHeaders() == null || props.getHeaders().isEmpty()) {
+        if(props.getHeaders() == null || props.getHeaders().isEmpty()) {
             logger.warn("Properties for received IP was null or empty.");
             return;
         }
         String sender = new String(((LongString) props.getHeaders().get("sender")).getBytes(), props.getContentEncoding());
-        if (!ValidationUtil.isValidUuid(sender)) {
+        if(!ValidationUtil.isValidUuid(sender)) {
             logger.warn("Non-valid sender received in IP: \"" + sender + "\".");
             return;
         }
-        if (serverID.equals(sender)) {
+        if(serverID.equals(sender)) {
             return;
         }
 
-        if (!ValidationUtil.isValidUuid(props.getMessageId())) {
+        if(!ValidationUtil.isValidUuid(props.getMessageId())) {
             logger.warn("Non-valid message ID received in IP: \"" + props.getMessageId() + "\".");
             return;
         }
 
         JSONObject obj = JSONUtil.parseObject(json);
         String ip = (String) obj.get("ip");
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             logger.warn("Non-valid IP received in IP: \"" + ip + "\".");
             return;
         }
@@ -271,27 +285,27 @@ public class RabbitMQ implements Messaging {
     }
 
     private void receivePlayer(AMQP.BasicProperties props, String json) throws UnsupportedEncodingException, ParseException, ClassCastException {
-        if (props.getHeaders() == null || props.getHeaders().isEmpty()) {
+        if(props.getHeaders() == null || props.getHeaders().isEmpty()) {
             logger.warn("Properties for received player was null or empty.");
             return;
         }
         String sender = new String(((LongString) props.getHeaders().get("sender")).getBytes(), props.getContentEncoding());
-        if (!ValidationUtil.isValidUuid(sender)) {
+        if(!ValidationUtil.isValidUuid(sender)) {
             logger.warn("Non-valid sender received in player: \"" + sender + "\".");
             return;
         }
-        if (serverID.equals(sender)) {
+        if(serverID.equals(sender)) {
             return;
         }
 
-        if (!ValidationUtil.isValidUuid(props.getMessageId())) {
+        if(!ValidationUtil.isValidUuid(props.getMessageId())) {
             logger.warn("Non-valid message ID received in player: \"" + props.getMessageId() + "\".");
             return;
         }
 
         JSONObject obj = JSONUtil.parseObject(json);
         String id = (String) obj.get("id");
-        if (!ValidationUtil.isValidUuid(id)) {
+        if(!ValidationUtil.isValidUuid(id)) {
             logger.warn("Non-valid UUID received in player: \"" + id + "\".");
             return;
         }
@@ -305,27 +319,27 @@ public class RabbitMQ implements Messaging {
     }
 
     private void receivePostVPN(AMQP.BasicProperties props, String json) throws UnsupportedEncodingException, ParseException, ClassCastException {
-        if (props.getHeaders() == null || props.getHeaders().isEmpty()) {
+        if(props.getHeaders() == null || props.getHeaders().isEmpty()) {
             logger.warn("Properties for received post VPN was null or empty.");
             return;
         }
         String sender = new String(((LongString) props.getHeaders().get("sender")).getBytes(), props.getContentEncoding());
-        if (!ValidationUtil.isValidUuid(sender)) {
+        if(!ValidationUtil.isValidUuid(sender)) {
             logger.warn("Non-valid sender received in post VPN: \"" + sender + "\".");
             return;
         }
-        if (serverID.equals(sender)) {
+        if(serverID.equals(sender)) {
             return;
         }
 
-        if (!ValidationUtil.isValidUuid(props.getMessageId())) {
+        if(!ValidationUtil.isValidUuid(props.getMessageId())) {
             logger.warn("Non-valid message ID received in post VPN: \"" + props.getMessageId() + "\".");
             return;
         }
 
         JSONObject obj = JSONUtil.parseObject(json);
         String ip = (String) obj.get("ip");
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             logger.warn("Non-valid IP received in post VPN: \"" + ip + "\".");
             return;
         }
@@ -342,9 +356,13 @@ public class RabbitMQ implements Messaging {
         );
     }
 
-    private RecoverableConnection getConnection() throws IOException, TimeoutException { return (RecoverableConnection) factory.newConnection(); }
+    private RecoverableConnection getConnection() throws IOException, TimeoutException {
+        return (RecoverableConnection) factory.newConnection();
+    }
 
-    private RecoverableChannel getChannel() throws IOException { return (RecoverableChannel) connection.createChannel(); }
+    private RecoverableChannel getChannel() throws IOException {
+        return (RecoverableChannel) connection.createChannel();
+    }
 
     private enum DeliveryMode {
         /**
@@ -357,8 +375,14 @@ public class RabbitMQ implements Messaging {
         PERSISTENT(2);
 
         private final int mode;
-        DeliveryMode(int mode) { this.mode = mode; }
-        public int getMode() { return mode; }
+
+        DeliveryMode(int mode) {
+            this.mode = mode;
+        }
+
+        public int getMode() {
+            return mode;
+        }
     }
 
     private enum ExchangeType {
@@ -368,7 +392,13 @@ public class RabbitMQ implements Messaging {
         HEADERS("match"); // AMQP compatibility
 
         private final String type;
-        ExchangeType(String type) { this.type = type; }
-        public String getType() { return type; }
+
+        ExchangeType(String type) {
+            this.type = type;
+        }
+
+        public String getType() {
+            return type;
+        }
     }
 }

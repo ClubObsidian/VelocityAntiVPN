@@ -1,31 +1,33 @@
 package me.egg82.antivpn.utils;
 
 import com.google.common.io.Files;
-import com.google.common.reflect.TypeToken;
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.configurate.ConfigurationNode;
-import org.spongepowered.configurate.loader.ConfigurationLoader;
 import org.spongepowered.configurate.serialize.SerializationException;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 public class ConfigurationVersionUtil {
     private static final Logger logger = LoggerFactory.getLogger(ConfigurationVersionUtil.class);
 
-    private ConfigurationVersionUtil() {}
+    private ConfigurationVersionUtil() {
+    }
 
     public static void conformVersion(YamlConfigurationLoader loader, ConfigurationNode config, File fileOnDisk) throws IOException {
         double oldVersion = config.node("version").getDouble(1.0d);
-        if (config.node("version").getDouble() == 4.12d) {
+        if(config.node("version").getDouble() == 4.12d) {
             to413(config);
         }
 
-        if (config.node("version").getDouble() != oldVersion) {
+        if(config.node("version").getDouble() != oldVersion) {
             File backupFile = new File(fileOnDisk.getParent(), fileOnDisk.getName() + ".bak");
-            if (backupFile.exists()) {
+            if(backupFile.exists()) {
                 java.nio.file.Files.delete(backupFile.toPath());
             }
 
@@ -49,10 +51,10 @@ public class ConfigurationVersionUtil {
         added.add("192.168.0.0/16");
         added.add("fd00::/8");
 
-        for (Iterator<String> i = added.iterator(); i.hasNext();) {
+        for(Iterator<String> i = added.iterator(); i.hasNext(); ) {
             String ip = i.next();
-            for (String ip2 : ignoredIPs) {
-                if (ip.equalsIgnoreCase(ip2)) { // IPs are case-insensitive when loaded
+            for(String ip2 : ignoredIPs) {
+                if(ip.equalsIgnoreCase(ip2)) { // IPs are case-insensitive when loaded
                     i.remove();
                 }
             }

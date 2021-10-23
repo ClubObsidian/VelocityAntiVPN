@@ -3,11 +3,24 @@ package me.egg82.antivpn.commands;
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.CommandHelp;
 import co.aikar.commands.CommandIssuer;
-import co.aikar.commands.annotation.*;
+import co.aikar.commands.annotation.CatchUnknown;
+import co.aikar.commands.annotation.CommandAlias;
+import co.aikar.commands.annotation.CommandCompletion;
+import co.aikar.commands.annotation.CommandPermission;
+import co.aikar.commands.annotation.Conditions;
+import co.aikar.commands.annotation.Default;
+import co.aikar.commands.annotation.Description;
+import co.aikar.commands.annotation.HelpCommand;
+import co.aikar.commands.annotation.Subcommand;
+import co.aikar.commands.annotation.Syntax;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.plugin.PluginDescription;
 import com.velocitypowered.api.proxy.ProxyServer;
-import me.egg82.antivpn.commands.internal.*;
+import me.egg82.antivpn.commands.internal.CheckCommand;
+import me.egg82.antivpn.commands.internal.ImportCommand;
+import me.egg82.antivpn.commands.internal.ReloadCommand;
+import me.egg82.antivpn.commands.internal.ScoreCommand;
+import me.egg82.antivpn.commands.internal.TestCommand;
 import me.egg82.antivpn.services.StorageMessagingHandler;
 import ninja.egg82.service.ServiceLocator;
 import ninja.egg82.service.ServiceNotFoundException;
@@ -35,7 +48,7 @@ public class AntiVPNCommand extends BaseCommand {
         StorageMessagingHandler handler;
         try {
             handler = ServiceLocator.get(StorageMessagingHandler.class);
-        } catch (InstantiationException | IllegalAccessException | ServiceNotFoundException ex) {
+        } catch(InstantiationException | IllegalAccessException | ServiceNotFoundException ex) {
             logger.error(ex.getMessage(), ex);
             return;
         }
@@ -78,7 +91,8 @@ public class AntiVPNCommand extends BaseCommand {
         new CheckCommand(issuer, proxy, type).run();
     }
 
-    @CatchUnknown @Default
+    @CatchUnknown
+    @Default
     @CommandCompletion("@subcommand")
     public void onDefault(CommandSource source, String[] args) {
         proxy.getCommandManager().executeAsync(source, "antivpn help");
@@ -86,5 +100,7 @@ public class AntiVPNCommand extends BaseCommand {
 
     @HelpCommand
     @Syntax("[command]")
-    public void onHelp(CommandSource source, CommandHelp help) { help.showHelp(); }
+    public void onHelp(CommandSource source, CommandHelp help) {
+        help.showHelp();
+    }
 }

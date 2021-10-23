@@ -22,7 +22,10 @@ public class APIException extends Exception {
      * A boolean representing whether or not the exception is "hard"
      * A "hard" exception means an internal failure or exception in the API, and is usually logged
      * A "soft" (not hard) exception means a user error or otherwise easily-correctable error
+     *
      * @return A boolean representing whether or not the exception is "hard"
      */
-    public boolean isHard() { return hard; }
+    public boolean isHard() {
+        return hard;
+    }
 }

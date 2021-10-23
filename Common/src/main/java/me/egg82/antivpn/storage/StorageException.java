@@ -2,7 +2,10 @@ package me.egg82.antivpn.storage;
 
 public class StorageException extends Exception {
     private final boolean automaticallyRecoverable;
-    public boolean isAutomaticallyRecoverable() { return automaticallyRecoverable; }
+
+    public boolean isAutomaticallyRecoverable() {
+        return automaticallyRecoverable;
+    }
 
     public StorageException(boolean automaticallyRecoverable, String message) {
         super(message);

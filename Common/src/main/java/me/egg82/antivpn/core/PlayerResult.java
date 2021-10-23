@@ -16,16 +16,22 @@ public class PlayerResult {
         hc = Objects.hash(longPlayerID);
     }
 
-    public long getLongPlayerID() { return longPlayerID; }
+    public long getLongPlayerID() {
+        return longPlayerID;
+    }
 
-    public UUID getPlayerID() { return playerID; }
+    public UUID getPlayerID() {
+        return playerID;
+    }
 
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof PlayerResult)) return false;
+        if(this == o) return true;
+        if(!(o instanceof PlayerResult)) return false;
         PlayerResult that = (PlayerResult) o;
         return longPlayerID == that.longPlayerID;
     }
 
-    public int hashCode() { return hc; }
+    public int hashCode() {
+        return hc;
+    }
 }

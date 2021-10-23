@@ -2,9 +2,6 @@ package me.egg82.antivpn.commands.internal;
 
 import co.aikar.commands.CommandIssuer;
 import com.velocitypowered.api.proxy.ProxyServer;
-import java.io.IOException;
-import java.util.Optional;
-import java.util.UUID;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.VPNAPI;
 import me.egg82.antivpn.enums.Message;
@@ -16,6 +13,10 @@ import me.egg82.antivpn.utils.ConfigUtil;
 import me.egg82.antivpn.utils.ValidationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Optional;
+import java.util.UUID;
 
 public class CheckCommand implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -35,20 +36,20 @@ public class CheckCommand implements Runnable {
     public void run() {
         issuer.sendInfo(Message.CHECK__BEGIN, "{type}", type);
 
-        if (ValidationUtil.isValidIp(type)) {
+        if(ValidationUtil.isValidIp(type)) {
             Optional<CachedConfigValues> cachedConfig = ConfigUtil.getCachedConfig();
-            if (!cachedConfig.isPresent()) {
+            if(!cachedConfig.isPresent()) {
                 logger.error("Cached config could not be fetched.");
                 issuer.sendError(Message.ERROR__INTERNAL);
                 return;
             }
 
-            if (cachedConfig.get().getVPNAlgorithmMethod() == VPNAlgorithmMethod.CONSESNSUS) {
+            if(cachedConfig.get().getVPNAlgorithmMethod() == VPNAlgorithmMethod.CONSESNSUS) {
                 try {
                     issuer.sendInfo(api.consensus(type) >= cachedConfig.get().getVPNAlgorithmConsensus() ? Message.CHECK__VPN_DETECTED : Message.CHECK__NO_VPN_DETECTED);
                     return;
-                } catch (APIException ex) {
-                    if (cachedConfig.get().getDebug()) {
+                } catch(APIException ex) {
+                    if(cachedConfig.get().getDebug()) {
                         logger.error("[Hard: " + ex.isHard() + "] " + ex.getMessage(), ex);
                     } else {
                         logger.error("[Hard: " + ex.isHard() + "] " + ex.getMessage());
@@ -58,8 +59,8 @@ public class CheckCommand implements Runnable {
                 try {
                     issuer.sendInfo(api.cascade(type) ? Message.CHECK__VPN_DETECTED : Message.CHECK__NO_VPN_DETECTED);
                     return;
-                } catch (APIException ex) {
-                    if (cachedConfig.get().getDebug()) {
+                } catch(APIException ex) {
+                    if(cachedConfig.get().getDebug()) {
                         logger.error("[Hard: " + ex.isHard() + "] " + ex.getMessage(), ex);
                     } else {
                         logger.error("[Hard: " + ex.isHard() + "] " + ex.getMessage());
@@ -69,13 +70,13 @@ public class CheckCommand implements Runnable {
             issuer.sendError(Message.ERROR__INTERNAL);
         } else {
             UUID playerID = getPlayerUUID(type, proxy);
-            if (playerID == null) {
+            if(playerID == null) {
                 issuer.sendError(Message.ERROR__INTERNAL);
                 return;
             }
 
             Optional<CachedConfigValues> cachedConfig = ConfigUtil.getCachedConfig();
-            if (!cachedConfig.isPresent()) {
+            if(!cachedConfig.isPresent()) {
                 logger.error("Cached config could not be fetched.");
                 issuer.sendError(Message.ERROR__INTERNAL);
                 return;
@@ -87,7 +88,7 @@ public class CheckCommand implements Runnable {
         PlayerInfo info;
         try {
             info = PlayerLookup.get(name, proxy);
-        } catch (IOException ex) {
+        } catch(IOException ex) {
             logger.warn("Could not fetch player UUID. (rate-limited?)", ex);
             return null;
         }

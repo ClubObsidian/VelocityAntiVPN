@@ -4,6 +4,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import ninja.egg82.json.JSONUtil;
+import ninja.egg82.json.JSONWebUtil;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,18 +21,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import ninja.egg82.json.JSONUtil;
-import ninja.egg82.json.JSONWebUtil;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
 
 public class VelocityPlayerInfo implements PlayerInfo {
-    private UUID uuid;
-    private String name;
+    private final UUID uuid;
+    private final String name;
 
-    private static Cache<UUID, String> uuidCache = Caffeine.newBuilder().expireAfterWrite(1L, TimeUnit.HOURS).build();
-    private static Cache<String, UUID> nameCache = Caffeine.newBuilder().expireAfterWrite(1L, TimeUnit.HOURS).build();
+    private static final Cache<UUID, String> uuidCache = Caffeine.newBuilder().expireAfterWrite(1L, TimeUnit.HOURS).build();
+    private static final Cache<String, UUID> nameCache = Caffeine.newBuilder().expireAfterWrite(1L, TimeUnit.HOURS).build();
 
     private static final Object uuidCacheLock = new Object();
     private static final Object nameCacheLock = new Object();
@@ -43,10 +44,10 @@ public class VelocityPlayerInfo implements PlayerInfo {
         this.uuid = uuid;
 
         Optional<String> name = Optional.ofNullable(uuidCache.getIfPresent(uuid));
-        if (!name.isPresent()) {
-            synchronized (uuidCacheLock) {
+        if(!name.isPresent()) {
+            synchronized(uuidCacheLock) {
                 name = Optional.ofNullable(uuidCache.getIfPresent(uuid));
-                if (!name.isPresent()) {
+                if(!name.isPresent()) {
                     name = Optional.ofNullable(nameExpensive(uuid, proxy));
                     name.ifPresent(v -> uuidCache.put(uuid, v));
                 }
@@ -60,10 +61,10 @@ public class VelocityPlayerInfo implements PlayerInfo {
         this.name = name;
 
         Optional<UUID> uuid = Optional.ofNullable(nameCache.getIfPresent(name));
-        if (!uuid.isPresent()) {
-            synchronized (nameCacheLock) {
+        if(!uuid.isPresent()) {
+            synchronized(nameCacheLock) {
                 uuid = Optional.ofNullable(nameCache.getIfPresent(name));
-                if (!uuid.isPresent()) {
+                if(!uuid.isPresent()) {
                     uuid = Optional.ofNullable(uuidExpensive(name, proxy));
                     uuid.ifPresent(v -> nameCache.put(name, v));
                 }
@@ -84,26 +85,26 @@ public class VelocityPlayerInfo implements PlayerInfo {
     private static String nameExpensive(UUID uuid, ProxyServer proxy) throws IOException {
         // Currently-online lookup
         Optional<Player> player = proxy.getPlayer(uuid);
-        if (player.isPresent()) {
+        if(player.isPresent()) {
             nameCache.put(player.get().getUsername(), uuid);
             return player.get().getUsername();
         }
 
         // Network lookup
-        HttpURLConnection conn = JSONWebUtil.getConnection(new URL("https://api.mojang.com/user/profiles/" + uuid.toString().replace("-", "") + "/names"), "GET", 5000, "egg82/PlayerInfo", headers);;
+        HttpURLConnection conn = JSONWebUtil.getConnection(new URL("https://api.mojang.com/user/profiles/" + uuid.toString().replace("-", "") + "/names"), "GET", 5000, "egg82/PlayerInfo", headers);
         int status = conn.getResponseCode();
 
-        if (status == 204) {
+        if(status == 204) {
             // No data exists
             return null;
-        } else if (status == 200) {
+        } else if(status == 200) {
             try {
                 JSONArray json = getJSONArray(conn, status);
                 JSONObject last = (JSONObject) json.get(json.size() - 1);
                 String name = (String) last.get("name");
                 nameCache.put(name, uuid);
                 return name;
-            } catch (ParseException | ClassCastException ex) {
+            } catch(ParseException | ClassCastException ex) {
                 throw new IOException(ex.getMessage(), ex);
             }
         }
@@ -114,7 +115,7 @@ public class VelocityPlayerInfo implements PlayerInfo {
     private static UUID uuidExpensive(String name, ProxyServer proxy) throws IOException {
         // Currently-online lookup
         Optional<Player> player = proxy.getPlayer(name);
-        if (player.isPresent()) {
+        if(player.isPresent()) {
             uuidCache.put(player.get().getUniqueId(), name);
             return player.get().getUniqueId();
         }
@@ -123,17 +124,17 @@ public class VelocityPlayerInfo implements PlayerInfo {
         HttpURLConnection conn = JSONWebUtil.getConnection(new URL("https://api.mojang.com/users/profiles/minecraft/" + name), "GET", 5000, "egg82/PlayerInfo", headers);
         int status = conn.getResponseCode();
 
-        if (status == 204) {
+        if(status == 204) {
             // No data exists
             return null;
-        } else if (status == 200) {
+        } else if(status == 200) {
             try {
                 JSONObject json = getJSONObject(conn, status);
                 UUID uuid = UUID.fromString(((String) json.get("id")).replaceFirst("(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)", "$1-$2-$3-$4-$5"));
                 name = (String) json.get("name");
                 uuidCache.put(uuid, name);
                 return uuid;
-            } catch (ParseException | ClassCastException ex) {
+            } catch(ParseException | ClassCastException ex) {
                 throw new IOException(ex.getMessage(), ex);
             }
         }
@@ -150,10 +151,10 @@ public class VelocityPlayerInfo implements PlayerInfo {
     }
 
     private static String getString(HttpURLConnection conn, int status) throws IOException {
-        try (InputStream in = getInputStream(conn, status); InputStreamReader reader = new InputStreamReader(in); BufferedReader buffer = new BufferedReader(reader)) {
+        try(InputStream in = getInputStream(conn, status); InputStreamReader reader = new InputStreamReader(in); BufferedReader buffer = new BufferedReader(reader)) {
             StringBuilder builder = new StringBuilder();
             String line;
-            while ((line = buffer.readLine()) != null) {
+            while((line = buffer.readLine()) != null) {
                 builder.append(line);
             }
             return builder.toString();
@@ -161,7 +162,7 @@ public class VelocityPlayerInfo implements PlayerInfo {
     }
 
     private static InputStream getInputStream(HttpURLConnection conn, int status) throws IOException {
-        if (status >= 400 && status < 600) {
+        if(status >= 400 && status < 600) {
             // 400-500 errors
             throw new IOException("Server returned status code " + status);
         }

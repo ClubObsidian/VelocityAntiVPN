@@ -1,7 +1,5 @@
 package me.egg82.antivpn.apis.vpn;
 
-import java.io.IOException;
-import java.net.URL;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.utils.ValidationUtil;
 import ninja.egg82.json.JSONWebUtil;
@@ -9,16 +7,23 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.spongepowered.configurate.ConfigurationNode;
 
-public class VPNBlocker extends AbstractSourceAPI {
-    public String getName() { return "vpnblocker"; }
+import java.io.IOException;
+import java.net.URL;
 
-    public boolean isKeyRequired() { return false; }
+public class VPNBlocker extends AbstractSourceAPI {
+    public String getName() {
+        return "vpnblocker";
+    }
+
+    public boolean isKeyRequired() {
+        return false;
+    }
 
     public boolean getResult(String ip) throws APIException {
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
 
@@ -29,19 +34,19 @@ public class VPNBlocker extends AbstractSourceAPI {
         JSONObject json;
         try {
             json = JSONWebUtil.getJSONObject(new URL("http" + ((key != null && !key.isEmpty()) ? "s" : "") + "://api.vpnblocker.net/v2/json/" + ip + ((key != null && !key.isEmpty()) ? "/" + key : "")), "GET", (int) getCachedConfig().getTimeout(), "egg82/AntiVPN");
-        } catch (IOException | ParseException | ClassCastException ex) {
+        } catch(IOException | ParseException | ClassCastException ex) {
             throw new APIException(false, "Could not get result from " + getName());
         }
-        if (json == null || json.get("status") == null) {
+        if(json == null || json.get("status") == null) {
             throw new APIException(false, "Could not get result from " + getName());
         }
 
         String status = (String) json.get("status");
-        if (!status.equalsIgnoreCase("success")) {
+        if(!status.equalsIgnoreCase("success")) {
             throw new APIException(false, "Could not get result from " + getName());
         }
 
-        if (json.get("host-ip") == null) {
+        if(json.get("host-ip") == null) {
             throw new APIException(false, "Could not get result from " + getName());
         }
 

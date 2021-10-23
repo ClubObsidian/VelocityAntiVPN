@@ -116,17 +116,17 @@ sources:
 
   # The order to try results in
   order:
-  - 'proxycheck'
-  - 'iptrooper'
-  - 'getipintel'
-  - 'ipqualityscore'
-  - 'iphub'
-  - 'iphunter'
-  - 'vpnblocker'
-  - 'ip2proxy'
-  - 'shodan'
-  - 'teoh'
-  - 'ipwarner'
+    - 'proxycheck'
+    - 'iptrooper'
+    - 'getipintel'
+    - 'ipqualityscore'
+    - 'iphub'
+    - 'iphunter'
+    - 'vpnblocker'
+    - 'ip2proxy'
+    - 'shodan'
+    - 'teoh'
+    - 'ipwarner'
 
   # https://proxycheck.io
   # Results updated Jan 19, 2020
@@ -294,12 +294,12 @@ action:
 
   # IPs and ranges to ignore when checking for VPNs
   ignore:
-  - '127.0.0.0/8'
-  - '10.0.0.0/8'
-  - '172.16.0.0/12'
-  - '192.168.0.0/16'
-  - '::1/128'
-  - 'fd00::/8'
+    - '127.0.0.0/8'
+    - '10.0.0.0/8'
+    - '172.16.0.0/12'
+    - '192.168.0.0/16'
+    - '::1/128'
+    - 'fd00::/8'
 
 connection:
   # The amount of time to cache lookups in-memory

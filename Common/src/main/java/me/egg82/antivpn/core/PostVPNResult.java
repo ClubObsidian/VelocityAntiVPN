@@ -24,24 +24,38 @@ public class PostVPNResult {
         hc = Objects.hash(id);
     }
 
-    public long getID() { return id; }
+    public long getID() {
+        return id;
+    }
 
-    public long getIPID() { return ipID; }
+    public long getIPID() {
+        return ipID;
+    }
 
-    public String getIP() { return ip; }
+    public String getIP() {
+        return ip;
+    }
 
-    public Optional<Boolean> getCascade() { return cascade; }
+    public Optional<Boolean> getCascade() {
+        return cascade;
+    }
 
-    public Optional<Double> getConsensus() { return consensus; }
+    public Optional<Double> getConsensus() {
+        return consensus;
+    }
 
-    public long getCreated() { return created; }
+    public long getCreated() {
+        return created;
+    }
 
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof PostVPNResult)) return false;
+        if(this == o) return true;
+        if(!(o instanceof PostVPNResult)) return false;
         PostVPNResult that = (PostVPNResult) o;
         return id == that.id;
     }
 
-    public int hashCode() { return hc; }
+    public int hashCode() {
+        return hc;
+    }
 }

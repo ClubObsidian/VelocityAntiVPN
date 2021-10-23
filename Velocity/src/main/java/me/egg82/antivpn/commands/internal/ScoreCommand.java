@@ -5,17 +5,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import inet.ipaddr.IPAddress;
 import inet.ipaddr.IPAddressString;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.directory.Attributes;
-import javax.naming.directory.InitialDirContext;
 import me.egg82.antivpn.APIException;
 import me.egg82.antivpn.VPNAPI;
 import me.egg82.antivpn.enums.Message;
@@ -23,6 +12,18 @@ import me.egg82.antivpn.utils.ConfigUtil;
 import me.egg82.antivpn.utils.ValidationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.InitialDirContext;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class ScoreCommand implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(ScoreCommand.class);
@@ -47,7 +48,7 @@ public class ScoreCommand implements Runnable {
         issuer.sendInfo(Message.SCORE__SLEEP);
         try {
             Thread.sleep(60000L);
-        } catch (InterruptedException ignored) {
+        } catch(InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
 
@@ -56,7 +57,7 @@ public class ScoreCommand implements Runnable {
         issuer.sendInfo(Message.SCORE__SLEEP);
         try {
             Thread.sleep(60000L);
-        } catch (InterruptedException ignored) {
+        } catch(InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
 
@@ -70,7 +71,7 @@ public class ScoreCommand implements Runnable {
     }
 
     private void test(CommandIssuer issuer, String source, String vpnName, Set<String> ips, boolean flipResult) {
-        if (ConfigUtil.getDebugOrFalse()) {
+        if(ConfigUtil.getDebugOrFalse()) {
             logger.info("Testing against " + vpnName);
         }
 
@@ -78,30 +79,30 @@ public class ScoreCommand implements Runnable {
         double good = 0.0d;
 
         int i = 0;
-        for (String ip : ips) {
+        for(String ip : ips) {
             i++;
             try {
-                if (source.equalsIgnoreCase("getipintel")) {
+                if(source.equalsIgnoreCase("getipintel")) {
                     Thread.sleep(5000L); // 15req/min max, so every 4 seconds. 5 to be safe.
                 } else {
                     Thread.sleep(1000L);
                 }
-            } catch (IllegalArgumentException ex) {
+            } catch(IllegalArgumentException ex) {
                 logger.error(ex.getMessage(), ex);
-            } catch (InterruptedException ex) {
+            } catch(InterruptedException ex) {
                 logger.error(ex.getMessage(), ex);
                 Thread.currentThread().interrupt();
             }
 
-            if (ConfigUtil.getDebugOrFalse()) {
+            if(ConfigUtil.getDebugOrFalse()) {
                 logger.info("Testing " + ip + " (" + i + "/" + ips.size() + ")");
             }
 
             boolean result;
             try {
                 result = api.getSourceResult(ip, source);
-            } catch (APIException ex) {
-                if (ex.isHard()) {
+            } catch(APIException ex) {
+                if(ex.isHard()) {
                     logger.error(ex.getMessage(), ex);
                     continue;
                 }
@@ -109,12 +110,12 @@ public class ScoreCommand implements Runnable {
                 continue;
             }
 
-            if ((!flipResult && result) || (flipResult && !result)) {
+            if((!flipResult && result) || (flipResult && !result)) {
                 good++;
             }
         }
 
-        if (error > 0) {
+        if(error > 0) {
             issuer.sendInfo(Message.SCORE__ERROR, "{source}", source, "{type}", vpnName, "{percent}", format.format((error / ips.size()) * 100.0d));
         }
         issuer.sendInfo(Message.SCORE__SCORE, "{source}", source, "{type}", vpnName, "{percent}", format.format((good / ips.size()) * 100.0d));
@@ -182,29 +183,30 @@ public class ScoreCommand implements Runnable {
         return getIPs(dns.toArray(new String[0]), 50);
     }
 
-    private static LoadingCache<String, Set<String>> validNordVPN = Caffeine.newBuilder().build(ScoreCommand::findNordVPN);
+    private static final LoadingCache<String, Set<String>> validNordVPN = Caffeine.newBuilder().build(ScoreCommand::findNordVPN);
 
     private static Set<String> findNordVPN(String dns) {
-        if (ConfigUtil.getDebugOrFalse()) {
+        if(ConfigUtil.getDebugOrFalse()) {
             logger.info("Building NordVPN set " + dns.replace("{}", ""));
         }
 
         Set<String> retVal = new HashSet<>();
-        for (int i = 0; i < 50; i++) {
+        for(int i = 0; i < 50; i++) {
             try {
                 String name = dns.replace("{}", String.valueOf(i));
                 InetAddress.getByName(name);
                 retVal.add(name);
-            } catch (UnknownHostException ignored) { }
+            } catch(UnknownHostException ignored) {
+            }
         }
-        if (ConfigUtil.getDebugOrFalse()) {
+        if(ConfigUtil.getDebugOrFalse()) {
             logger.info("Got " + retVal.size() + " value(s) for NordVPN set " + dns.replace("{}", ""));
         }
         return retVal;
     }
 
     private Set<String> getCryptostormIPs() {
-        String[] dns = new String[] {
+        String[] dns = new String[]{
                 "balancer.cstorm.is",
                 "balancer.cstorm.net",
                 "balancer.cryptostorm.ch",
@@ -213,31 +215,31 @@ public class ScoreCommand implements Runnable {
         return getIPs(dns, 50);
     }
 
-    private static LoadingCache<String, Set<String>> records = Caffeine.newBuilder().build(ScoreCommand::collectRecords);
+    private static final LoadingCache<String, Set<String>> records = Caffeine.newBuilder().build(ScoreCommand::collectRecords);
 
     private static Set<String> collectRecords(String dns) {
-        if (ConfigUtil.getDebugOrFalse()) {
+        if(ConfigUtil.getDebugOrFalse()) {
             logger.info("Collecting A records for " + dns);
         }
         Set<String> retVal = new HashSet<>();
         try {
             InitialDirContext context = new InitialDirContext();
-            Attributes attributes = context.getAttributes("dns:/" + dns, new String[] { "A" });
+            Attributes attributes = context.getAttributes("dns:/" + dns, new String[]{"A"});
             NamingEnumeration<?> attributeEnum = attributes.get("A").getAll();
-            while (attributeEnum.hasMore()) {
+            while(attributeEnum.hasMore()) {
                 retVal.add(attributeEnum.next().toString());
             }
-        } catch (NamingException ex) {
+        } catch(NamingException ex) {
             logger.error(ex.getMessage(), ex);
         }
-        if (ConfigUtil.getDebugOrFalse()) {
+        if(ConfigUtil.getDebugOrFalse()) {
             logger.info("Got " + retVal.size() + " record(s) for " + dns);
         }
         return retVal;
     }
 
     private Set<String> getHomeIPs() {
-        String[] dns = new String[] {
+        String[] dns = new String[]{
                 // Comcast - https://postmaster.comcast.net/dynamic-IP-ranges.html
                 "24.0.0.0/12",
                 "24.16.0.0/13",
@@ -317,26 +319,26 @@ public class ScoreCommand implements Runnable {
         Set<String> retVal = new HashSet<>();
 
         int fails = 0;
-        while (retVal.size() < count && fails < 1000) {
+        while(retVal.size() < count && fails < 1000) {
             String name;
             do {
                 name = dns[(int) fairRoundedRandom(0L, (long) dns.length - 1L)];
-            } while (name == null);
+            } while(name == null);
 
-            if (ValidationUtil.isValidIp(name)) {
-                if (!retVal.add(name)) {
+            if(ValidationUtil.isValidIp(name)) {
+                if(!retVal.add(name)) {
                     fails++;
                 }
-            } else if (ValidationUtil.isValidIPRange(name)) {
-                if (!retVal.addAll(getIPs(name, 1))) {
+            } else if(ValidationUtil.isValidIPRange(name)) {
+                if(!retVal.addAll(getIPs(name, 1))) {
                     fails++;
                 }
             } else {
                 List<String> r = new ArrayList<>(records.get(name));
-                if (r.isEmpty()) {
+                if(r.isEmpty()) {
                     continue;
                 }
-                if (!retVal.add(r.get((int) fairRoundedRandom(0L, (long) r.size() - 1L)))) {
+                if(!retVal.add(r.get((int) fairRoundedRandom(0L, (long) r.size() - 1L)))) {
                     fails++;
                 }
             }
@@ -350,24 +352,24 @@ public class ScoreCommand implements Runnable {
         IPAddress range = new IPAddressString(mask).getAddress();
 
         int fails = 0;
-        while (retVal.size() < count && fails < 1000) {
+        while(retVal.size() < count && fails < 1000) {
             long getIndex = fairRoundedRandom(0L, range.getCount().longValue());
             long i = 0;
-            for (IPAddress ip : range.getIterable()) {
-                if (i == getIndex) {
+            for(IPAddress ip : range.getIterable()) {
+                if(i == getIndex) {
                     String str = ip.toCanonicalString();
                     int idx = str.indexOf('/');
-                    if (idx > -1) {
+                    if(idx > -1) {
                         str = str.substring(0, idx);
                     }
-                    if (!retVal.add(str)) {
+                    if(!retVal.add(str)) {
                         fails++;
                     }
-                    if (retVal.size() >= count || fails >= 1000) {
+                    if(retVal.size() >= count || fails >= 1000) {
                         break;
                     }
                     getIndex = fairRoundedRandom(0L, range.getCount().longValue());
-                    if (getIndex <= i) {
+                    if(getIndex <= i) {
                         break;
                     }
                 }
@@ -384,7 +386,7 @@ public class ScoreCommand implements Runnable {
 
         do {
             num = (long) Math.floor(Math.random() * (max - min) + min);
-        } while (num > max - 1);
+        } while(num > max - 1);
 
         return num;
     }

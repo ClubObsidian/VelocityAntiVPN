@@ -1,11 +1,6 @@
 package me.egg82.antivpn.messaging;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import me.egg82.antivpn.services.MessagingHandler;
 import me.egg82.antivpn.utils.ValidationUtil;
 import ninja.egg82.analytics.utils.JSONUtil;
@@ -19,6 +14,12 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
 import redis.clients.jedis.exceptions.JedisException;
 
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 public class Redis extends JedisPubSub implements Messaging {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -30,7 +31,8 @@ public class Redis extends JedisPubSub implements Messaging {
     private UUID uuidServerID;
     private MessagingHandler handler;
 
-    private Redis() { }
+    private Redis() {
+    }
 
     private volatile boolean closed = false;
 
@@ -38,18 +40,22 @@ public class Redis extends JedisPubSub implements Messaging {
         closed = true;
         workPool.shutdown();
         try {
-            if (!workPool.awaitTermination(4L, TimeUnit.SECONDS)) {
+            if(!workPool.awaitTermination(4L, TimeUnit.SECONDS)) {
                 workPool.shutdownNow();
             }
-        } catch (InterruptedException ignored) {
+        } catch(InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
         pool.close();
     }
 
-    public boolean isClosed() { return closed || pool.isClosed(); }
+    public boolean isClosed() {
+        return closed || pool.isClosed();
+    }
 
-    public static Redis.Builder builder(UUID serverID, MessagingHandler handler) { return new Redis.Builder(serverID, handler); }
+    public static Redis.Builder builder(UUID serverID, MessagingHandler handler) {
+        return new Redis.Builder(serverID, handler);
+    }
 
     public static class Builder {
         private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -63,10 +69,10 @@ public class Redis extends JedisPubSub implements Messaging {
         private String pass = "";
 
         private Builder(UUID serverID, MessagingHandler handler) {
-            if (serverID == null) {
+            if(serverID == null) {
                 throw new IllegalArgumentException("serverID cannot be null.");
             }
-            if (handler == null) {
+            if(handler == null) {
                 throw new IllegalArgumentException("handler cannot be null.");
             }
 
@@ -111,15 +117,15 @@ public class Redis extends JedisPubSub implements Messaging {
 
         private void subscribe() {
             result.workPool.execute(() -> {
-                while (!result.isClosed()) {
-                    try (Jedis redis = result.pool.getResource()) {
+                while(!result.isClosed()) {
+                    try(Jedis redis = result.pool.getResource()) {
                         redis.subscribe(result,
                                 "antivpn-ip",
                                 "antivpn-player",
                                 "antivpn-post-vpn"
                         );
-                    } catch (JedisException ex) {
-                        if (!result.isClosed()) {
+                    } catch(JedisException ex) {
+                        if(!result.isClosed()) {
                             logger.warn("Redis pub/sub disconnected. Reconnecting..");
                         }
                     }
@@ -130,23 +136,23 @@ public class Redis extends JedisPubSub implements Messaging {
         private void warmup(JedisPool pool) throws MessagingException {
             Jedis[] warmpupArr = new Jedis[config.getMinIdle()];
 
-            for (int i = 0; i < config.getMinIdle(); i++) {
+            for(int i = 0; i < config.getMinIdle(); i++) {
                 Jedis jedis;
                 try {
                     jedis = pool.getResource();
                     warmpupArr[i] = jedis;
                     jedis.ping();
-                } catch (JedisException ex) {
+                } catch(JedisException ex) {
                     throw new MessagingException(false, "Could not warm up Redis connection.", ex);
                 }
             }
             // Two loops because we need to ensure we don't pull a freshly-created resource from the pool
-            for (int i = 0; i < config.getMinIdle(); i++) {
+            for(int i = 0; i < config.getMinIdle(); i++) {
                 Jedis jedis;
                 try {
                     jedis = warmpupArr[i];
                     jedis.close();
-                } catch (JedisException ex) {
+                } catch(JedisException ex) {
                     throw new MessagingException(false, "Could not close warmed Redis connection.", ex);
                 }
             }
@@ -154,62 +160,62 @@ public class Redis extends JedisPubSub implements Messaging {
     }
 
     public void sendIP(UUID messageID, long longIPID, String ip) throws MessagingException {
-        if (messageID == null) {
+        if(messageID == null) {
             throw new IllegalArgumentException("messageID cannot be null.");
         }
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
 
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             JSONObject obj = createJSON(messageID);
             obj.put("longID", longIPID);
             obj.put("ip", ip);
             redis.publish("antivpn-ip", obj.toJSONString());
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new MessagingException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void sendPlayer(UUID messageID, long longPlayerID, UUID playerID) throws MessagingException {
-        if (messageID == null) {
+        if(messageID == null) {
             throw new IllegalArgumentException("messageID cannot be null.");
         }
-        if (playerID == null) {
+        if(playerID == null) {
             throw new IllegalArgumentException("playerID cannot be null.");
         }
 
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             JSONObject obj = createJSON(messageID);
             obj.put("longID", longPlayerID);
             obj.put("id", playerID.toString());
             redis.publish("antivpn-player", obj.toJSONString());
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new MessagingException(isAutomaticallyRecoverable(ex), ex);
         }
     }
 
     public void sendPostVPN(UUID messageID, long id, long longIPID, String ip, Optional<Boolean> cascade, Optional<Double> consensus, long created) throws MessagingException {
-        if (messageID == null) {
+        if(messageID == null) {
             throw new IllegalArgumentException("messageID cannot be null.");
         }
-        if (ip == null) {
+        if(ip == null) {
             throw new IllegalArgumentException("ip cannot be null.");
         }
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             throw new IllegalArgumentException("ip is invalid.");
         }
-        if (cascade == null) {
+        if(cascade == null) {
             throw new IllegalArgumentException("cascade cannot be null.");
         }
-        if (consensus == null) {
+        if(consensus == null) {
             throw new IllegalArgumentException("consensus cannot be null.");
         }
 
-        try (Jedis redis = pool.getResource()) {
+        try(Jedis redis = pool.getResource()) {
             JSONObject obj = createJSON(messageID);
             obj.put("id", id);
             obj.put("longIPID", longIPID);
@@ -218,7 +224,7 @@ public class Redis extends JedisPubSub implements Messaging {
             obj.put("consensus", consensus.orElse(null));
             obj.put("created", created);
             redis.publish("antivpn-post-vpn", obj.toJSONString());
-        } catch (JedisException ex) {
+        } catch(JedisException ex) {
             throw new MessagingException(isAutomaticallyRecoverable(ex), ex);
         }
     }
@@ -231,9 +237,9 @@ public class Redis extends JedisPubSub implements Messaging {
     }
 
     private boolean isAutomaticallyRecoverable(JedisException ex) {
-        if (
+        if(
                 ex.getMessage().startsWith("Failed connecting")
-                || ex.getMessage().contains("broken connection")
+                        || ex.getMessage().contains("broken connection")
         ) {
             return true;
         }
@@ -242,7 +248,7 @@ public class Redis extends JedisPubSub implements Messaging {
 
     public void onMessage(String channel, String message) {
         try {
-            switch (channel) {
+            switch(channel) {
                 case "antivpn-ip":
                     receiveIP(message);
                     break;
@@ -256,7 +262,7 @@ public class Redis extends JedisPubSub implements Messaging {
                     logger.warn("Got data from channel that should not exist.");
                     break;
             }
-        } catch (ParseException | ClassCastException ex) {
+        } catch(ParseException | ClassCastException ex) {
             logger.warn("Could not parse incoming data.", ex);
         }
     }
@@ -264,22 +270,22 @@ public class Redis extends JedisPubSub implements Messaging {
     private void receiveIP(String json) throws ParseException, ClassCastException {
         JSONObject obj = JSONUtil.parseObject(json);
         String sender = (String) obj.get("sender");
-        if (!ValidationUtil.isValidUuid(sender)) {
+        if(!ValidationUtil.isValidUuid(sender)) {
             logger.warn("Non-valid sender received in IP: \"" + sender + "\".");
             return;
         }
-        if (serverID.equals(sender)) {
+        if(serverID.equals(sender)) {
             return;
         }
 
         String messageID = (String) obj.get("messageID");
-        if (!ValidationUtil.isValidUuid(messageID)) {
+        if(!ValidationUtil.isValidUuid(messageID)) {
             logger.warn("Non-valid message ID received in IP: \"" + messageID + "\".");
             return;
         }
 
         String ip = (String) obj.get("ip");
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             logger.warn("Non-valid IP received in IP: \"" + ip + "\".");
             return;
         }
@@ -295,22 +301,22 @@ public class Redis extends JedisPubSub implements Messaging {
     private void receivePlayer(String json) throws ParseException, ClassCastException {
         JSONObject obj = JSONUtil.parseObject(json);
         String sender = (String) obj.get("sender");
-        if (!ValidationUtil.isValidUuid(sender)) {
+        if(!ValidationUtil.isValidUuid(sender)) {
             logger.warn("Non-valid sender received in player: \"" + sender + "\".");
             return;
         }
-        if (serverID.equals(sender)) {
+        if(serverID.equals(sender)) {
             return;
         }
 
         String messageID = (String) obj.get("messageID");
-        if (!ValidationUtil.isValidUuid(messageID)) {
+        if(!ValidationUtil.isValidUuid(messageID)) {
             logger.warn("Non-valid message ID received in player: \"" + messageID + "\".");
             return;
         }
 
         String id = (String) obj.get("id");
-        if (!ValidationUtil.isValidUuid(id)) {
+        if(!ValidationUtil.isValidUuid(id)) {
             logger.warn("Non-valid UUID received in player: \"" + id + "\".");
             return;
         }
@@ -326,22 +332,22 @@ public class Redis extends JedisPubSub implements Messaging {
     private void receivePostVPN(String json) throws ParseException, ClassCastException {
         JSONObject obj = JSONUtil.parseObject(json);
         String sender = (String) obj.get("sender");
-        if (!ValidationUtil.isValidUuid(sender)) {
+        if(!ValidationUtil.isValidUuid(sender)) {
             logger.warn("Non-valid sender received in post VPN: \"" + sender + "\".");
             return;
         }
-        if (serverID.equals(sender)) {
+        if(serverID.equals(sender)) {
             return;
         }
 
         String messageID = (String) obj.get("messageID");
-        if (!ValidationUtil.isValidUuid(messageID)) {
+        if(!ValidationUtil.isValidUuid(messageID)) {
             logger.warn("Non-valid message ID received in post VPN: \"" + messageID + "\".");
             return;
         }
 
         String ip = (String) obj.get("ip");
-        if (!ValidationUtil.isValidIp(ip)) {
+        if(!ValidationUtil.isValidIp(ip)) {
             logger.warn("Non-valid IP received in post VPN: \"" + ip + "\".");
             return;
         }

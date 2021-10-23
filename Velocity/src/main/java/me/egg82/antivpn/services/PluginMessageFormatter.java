@@ -5,9 +5,11 @@ import co.aikar.commands.VelocityMessageFormatter;
 import co.aikar.locales.MessageKeyProvider;
 
 public class PluginMessageFormatter extends VelocityMessageFormatter {
-    private String header;
+    private final String header;
 
-    public PluginMessageFormatter(CommandManager manager, MessageKeyProvider header) { this(manager.getLocales().getMessage(null, header)); }
+    public PluginMessageFormatter(CommandManager manager, MessageKeyProvider header) {
+        this(manager.getLocales().getMessage(null, header));
+    }
 
     public PluginMessageFormatter(String header) {
         super();
